@@ -1,0 +1,7 @@
+build/
+.vscode/
+.claude/
+_deps/
+.ipynb_checkpoints/
+.DS_Store
+miniaudio.h
