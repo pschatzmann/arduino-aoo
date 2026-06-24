@@ -63,11 +63,12 @@ class AOOStreamUDP : public AOOStream {
 
   int availableForWrite() override { return udp.availableForWrite(); }
 
-  int available() override {
+    int available() override {
     int size = udp.available();
     if (size == 0) {
       size = udp.parsePacket();
     }
+    yield();
     return size;
   }
 
@@ -89,12 +90,15 @@ class AOOStreamUDP : public AOOStream {
     udp.beginPacket(remoteIP(), remotePort());
     size_t result = udp.write(data, len);
     udp.endPacket();
+    yield();
     return result;
   }
 
   size_t readBytes(uint8_t* data, size_t len) {
     if (available() > 0) {
-      return udp.readBytes(data, len);
+      size_t result = udp.readBytes(data, len);
+      yield();
+      return result;
     }
     return 0;
   }
@@ -104,6 +108,8 @@ class AOOStreamUDP : public AOOStream {
   int peek() override { return udp.peek(); }
 
   size_t write(uint8_t val) override { return write(&val, 1); }
+
+  void setTimeout(int timeout) { udp.setTimeout(); }
 
  protected:
   UDP_t udp;

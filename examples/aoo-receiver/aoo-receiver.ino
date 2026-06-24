@@ -29,6 +29,7 @@ void setup() {
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
+  WiFi.setSleep(false);
   Serial.print("Connected to WiFi. IP address: ");
   Serial.println(WiFi.localIP());
 

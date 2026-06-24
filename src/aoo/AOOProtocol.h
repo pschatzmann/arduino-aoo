@@ -12,6 +12,12 @@ namespace arduino_aoo {
 using std::min;
 using std::max;
   
+/// Extract the numeric ID from an OSC address after a known prefix
+/// e.g. aoo_parse_id("/aoo/sink/42/data", "/aoo/sink/") returns 42
+inline int32_t aoo_parse_id(const char *address, const char *prefix) {
+  return atoi(address + strlen(prefix));
+}
+
 /**
  * @brief  abstract aoo protocol message
  * @ingroup aoo-protocol
@@ -66,7 +72,7 @@ struct AOOStart : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/sink/%d/start", sink_id);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/start", sink_id);
     uint32_t msg_size = size(address, format);
 
     uint8_t aao_send_data[msg_size + 1];
@@ -119,7 +125,7 @@ struct AOOStart : public AOOMessage {
     }
 
     // Parse format data
-    sink_id = atoi(data.getAddress() + 10);
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
     version = data.readString();
     stream_id = data.readInt32();
@@ -133,6 +139,7 @@ struct AOOStart : public AOOMessage {
     start_time = data.readTime();
     reblock_resample_latency_samples = data.readInt32();
     codec_delay_samples = data.readInt32();
+    // skip NN (metadata nil markers) — no data bytes to consume
     sample_offset = data.readInt32();
 
     // Log info
@@ -142,7 +149,7 @@ struct AOOStart : public AOOMessage {
   }
 
  protected:
-  const char *format = "isiiiiiisbtiii";
+  const char *format = "isiiiiiisbtiiNNi";
 
   uint32_t size(const char *addr, const char *fmt) {
     return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (10 * 4) +
@@ -169,7 +176,7 @@ struct AOORequestStart : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/source/%d/start", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/start", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -211,7 +218,7 @@ struct AOORequestStart : public AOOMessage {
     }
 
     // Parse format data
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
     version = data.readString();
 
@@ -238,6 +245,7 @@ struct AOOStopSink : public AOOMessage {
   int32_t source_id = 0;
   int32_t sink_id = 0;
   int32_t stream_id = 0;
+  int32_t last_seq = 0;
   int32_t sample_offset = 0;
 
   void logData() override {
@@ -247,7 +255,7 @@ struct AOOStopSink : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/sink/%d/stop", sink_id);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/stop", sink_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -258,6 +266,7 @@ struct AOOStopSink : public AOOMessage {
     data.setFormat(format);
     data.write(source_id);
     data.write(stream_id);
+    data.write(last_seq);
     data.write(sample_offset);
 
     // check that we did not overwrite the trailing byte
@@ -289,9 +298,10 @@ struct AOOStopSink : public AOOMessage {
     }
 
     // Parse format data
-    sink_id = atoi(data.getAddress() + 10);
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
     stream_id = data.readInt32();
+    last_seq = data.readInt32();
     sample_offset = data.readInt32();
 
     // Log info
@@ -300,9 +310,9 @@ struct AOOStopSink : public AOOMessage {
   }
 
  protected:
-  const char *format = "iii";
+  const char *format = "iiii";
   uint32_t size(const char *addr, const char *fmt) {
-    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (3 * 4);
+    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (4 * 4);
   }
 };
 
@@ -324,7 +334,7 @@ struct AOOStopSource : public AOOMessage {
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
 
-    snprintf(address, sizeof(address), "/AoO/source/%d/stop", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/stop", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -365,7 +375,7 @@ struct AOOStopSource : public AOOMessage {
     }
 
     // Parse format data
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
     stream_id = data.readInt32();
 
@@ -384,7 +394,7 @@ struct AOOStopSource : public AOOMessage {
 
 /**
  * @brief  deliver audio data, large blocks are split across several frames:
- *  ``/AoO/sink/<sink>/data ,iiidiiiib <src> <stream_id> <seq> <samplerate>
+ *  ``/aoo/sink/<sink>/data ,iiidiiiib <src> <stream_id> <seq> <samplerate>
  *  <channel_onset> <totalsize> <total_number_of_frames> <frame> <data>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
@@ -417,8 +427,8 @@ struct AOOData : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    LOGI("AOOData: %d", (int)audio_data.len);
-    snprintf(address, sizeof(address), "/AoO/sink/%d/data", sink_id);
+    LOGD("AOOData: %d", (int)audio_data.len);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/data", sink_id);
     // This might get big, so we allocate the data on the heap
     uint32_t msg_size = size(address, format);
     // std::vector<uint8_t> aao_send_data;
@@ -437,7 +447,7 @@ struct AOOData : public AOOMessage {
     data.write(real_sample_rate);
     data.write(channel_onset);
     data.write(total_size);
-    data.write(message_data_size);
+    // N = no stream message
     data.write(total_number_of_frames);
     data.write(frame_idx);
     data.write(audio_data);
@@ -469,7 +479,7 @@ struct AOOData : public AOOMessage {
       return false;
     }
     // Read data message info
-    sink_id = atoi(data.getAddress() + 10);
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
     stream_id = data.readInt32();
     seq_no = data.readInt32();
@@ -477,7 +487,7 @@ struct AOOData : public AOOMessage {
     real_sample_rate = data.readDouble();
     channel_onset = data.readInt32();
     total_size = data.readInt32();
-    message_data_size = data.readInt32();
+    // skip N (stream message nil marker)
     total_number_of_frames = data.readInt32();
     frame_idx = data.readInt32();
     audio_data = data.readData();
@@ -485,17 +495,17 @@ struct AOOData : public AOOMessage {
   }
 
  protected:
-  const char *format = "iiitdiiiiib";  // sink_id, stream_id, seq, sample_rate,
-                                       // channel_onset, total_size,
-                                       // total_number_of_frames, frame, data
+  const char *format = "iiitdiiNiib";  // src, stream_id, seq, timestamp,
+                                       // sample_rate, channel_onset, total_size,
+                                       // N(msg_size), num_frames, frame, data
   uint32_t size(const char *addr, const char *fmt) {
-    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (8 * 4) +
+    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (7 * 4) +
            (2 * 8) + OSCData::oscSize(audio_data);
   }
 };
 
 /**
- * @brief request dropped packets: /AoO/src/<src>/data ,ii[ii]* <sink>
+ * @brief request dropped packets: /aoo/src/<src>/data ,ii[ii]* <sink>
  * <stream_id>
  * [<seq> <frame>]*
  * @ingroup aoo-protocol
@@ -531,7 +541,7 @@ struct AOOResendData : public AOOMessage {
 
     // address
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/source/%d/data", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/data", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -572,7 +582,7 @@ struct AOOResendData : public AOOMessage {
     }
     int format_len = strlen(format);
 
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
     stream_id = data.readInt32();
 
@@ -595,7 +605,7 @@ struct AOOResendData : public AOOMessage {
 
 /**
  * @brief ping message from source to sink (usually sent once per second):
- *  ``/AoO/sink/<sink>/ping ,it <sink> <t1>`
+ *  ``/aoo/sink/<sink>/ping ,it <sink> <t1>`
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
@@ -611,7 +621,7 @@ struct AOOPingSink : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/sink/%d/ping", sink_id);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/ping", sink_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -652,7 +662,7 @@ struct AOOPingSink : public AOOMessage {
     }
 
     // Read ping data
-    sink_id = atoi(data.getAddress() + 10);
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
     send_time = data.readTime();
 
@@ -668,7 +678,7 @@ struct AOOPingSink : public AOOMessage {
 
 /**
  * @brief ping message from sink to source (usually sent once per second):
- *  ``/AoO/source/<source>/ping ,itt <sink> <t1> ``
+ *  ``/aoo/src/<source>/ping ,itt <sink> <t1> ``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
@@ -684,7 +694,7 @@ struct AOOPingSource : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/source/%d/ping", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/ping", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -725,7 +735,7 @@ struct AOOPingSource : public AOOMessage {
     }
 
     // Read ping data
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
     send_time = data.readTime();
 
@@ -741,7 +751,7 @@ struct AOOPingSource : public AOOMessage {
 
 /**
  * @brief pong message:
- *  ``/AoO/sink/<sink>/pong ,ittt <sink> <t1> <t2> <t3>``
+ *  ``/aoo/sink/<sink>/pong ,ittt <sink> <t1> <t2> <t3>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
@@ -759,7 +769,7 @@ struct AOOPongSink : public AOOMessage {
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/sink/%d/pong", sink_id);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/pong", sink_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -795,13 +805,13 @@ struct AOOPongSink : public AOOMessage {
       LOGE("format is null");
       return false;
     }
-    if (strcmp(format, this->format) != 0) {
-      LOGE("Invalid ping message format: %s", format);
+    if (strncmp(format, this->format, strlen(this->format)) != 0) {
+      LOGE("Invalid pong message format: %s", format);
       return false;
     }
 
-    // Read ping data
-    sink_id = atoi(data.getAddress() + 10);
+    // Read pong data (optional trailing fields like packet loss are ignored)
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
     t1 = data.readTime();
     t2 = data.readTime();
@@ -822,7 +832,7 @@ struct AOOPongSink : public AOOMessage {
 
 /**
  * @brief pong message:
- *  ``/AoO/source/<source>/pong ,ittt <sink> <t1> <t2> <t3>``
+ *  ``/aoo/src/<source>/pong ,ittt <sink> <t1> <t2> <t3>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
@@ -841,7 +851,7 @@ struct AOOPongSource : public AOOMessage {
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     memset(address, 0, sizeof(address));
-    snprintf(address, sizeof(address), "/AoO/source/%d/pong", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/pong", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -877,13 +887,13 @@ struct AOOPongSource : public AOOMessage {
       LOGE("format is null");
       return false;
     }
-    if (strcmp(format, this->format) != 0) {
-      LOGE("Invalid ping message format: %s", format);
+    if (strncmp(format, this->format, strlen(this->format)) != 0) {
+      LOGE("Invalid pong message format: %s", format);
       return false;
     }
 
-    // Read ping data
-    source_id = atoi(data.getAddress() + 12);
+    // Read pong data (optional trailing fields like packet loss are ignored)
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
     t1 = data.readTime();
     t2 = data.readTime();
@@ -904,25 +914,25 @@ struct AOOPongSource : public AOOMessage {
 
 /**
  * @brief Invite a source to start streaming to this sink:
- *  ``/AoO/source/<source>/invite ,is <sink> <metadata>``
+ *  ``/aoo/src/<source>/invite ,iiNN <sink> <stream_id> <nil> <nil>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
 struct AOOInvite : public AOOMessage {
   int32_t source_id = 0;
   int32_t sink_id = 0;
-  const char *metadata = nullptr;
+  int32_t stream_id = 0;
 
   void logData() override {
-    LOGI("AOOInvite: source_id=%d, sink_id=%d", source_id, sink_id);
+    LOGI("AOOInvite: source_id=%d, sink_id=%d, stream_id=%d", source_id,
+         sink_id, stream_id);
   }
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/source/%d/invite", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/invite", source_id);
 
-    const char *meta = metadata ? metadata : "";
-    uint32_t msg_size = size(address, format, meta);
+    uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
     memset(aao_send_data, 0, msg_size + 1);
     OSCData data{aao_send_data, msg_size};
@@ -930,7 +940,7 @@ struct AOOInvite : public AOOMessage {
     data.setAddress(address);
     data.setFormat(format);
     data.write(sink_id);
-    data.write(meta);
+    data.write(stream_id);
 
     assert(aao_send_data[msg_size] == 0);
     assert(data.size() == msg_size);
@@ -948,38 +958,40 @@ struct AOOInvite : public AOOMessage {
       LOGE("Invalid invite format: %s", fmt ? fmt : "null");
       return false;
     }
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
-    metadata = data.readString();
+    stream_id = data.readInt32();
+    // skip NN (metadata nil markers)
     LOGI("AOOInvite: source=%d, sink=%d", source_id, sink_id);
     return true;
   }
 
  protected:
-  const char *format = "is";
-  uint32_t size(const char *addr, const char *fmt, const char *meta) {
-    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + 4 +
-           OSCData::oscSize(meta);
+  const char *format = "iiNN";
+  uint32_t size(const char *addr, const char *fmt) {
+    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (2 * 4);
   }
 };
 
 /**
  * @brief Uninvite a source (ask it to stop streaming to this sink):
- *  ``/AoO/source/<source>/uninvite ,i <sink>``
+ *  ``/aoo/src/<source>/uninvite ,ii <sink> <stream_id>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
 struct AOOUninvite : public AOOMessage {
   int32_t source_id = 0;
   int32_t sink_id = 0;
+  int32_t stream_id = 0;
 
   void logData() override {
-    LOGI("AOOUninvite: source_id=%d, sink_id=%d", source_id, sink_id);
+    LOGI("AOOUninvite: source_id=%d, sink_id=%d, stream_id=%d", source_id,
+         sink_id, stream_id);
   }
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/source/%d/uninvite", source_id);
+    snprintf(address, sizeof(address), "/aoo/src/%d/uninvite", source_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -989,6 +1001,7 @@ struct AOOUninvite : public AOOMessage {
     data.setAddress(address);
     data.setFormat(format);
     data.write(sink_id);
+    data.write(stream_id);
 
     assert(aao_send_data[msg_size] == 0);
     assert(data.size() == msg_size);
@@ -1006,36 +1019,39 @@ struct AOOUninvite : public AOOMessage {
       LOGE("Invalid uninvite format: %s", fmt ? fmt : "null");
       return false;
     }
-    source_id = atoi(data.getAddress() + 12);
+    source_id = aoo_parse_id(data.getAddress(), "/aoo/src/");
     sink_id = data.readInt32();
+    stream_id = data.readInt32();
     LOGI("AOOUninvite: source=%d, sink=%d", source_id, sink_id);
     return true;
   }
 
  protected:
-  const char *format = "i";
+  const char *format = "ii";
   uint32_t size(const char *addr, const char *fmt) {
-    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + 4;
+    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (2 * 4);
   }
 };
 
 /**
  * @brief Source declines a sink's invitation:
- *  ``/AoO/sink/<sink>/decline ,i <source>``
+ *  ``/aoo/sink/<sink>/decline ,ii <source> <stream_id>``
  * @ingroup aoo-protocol
  * @author Phil Schatzmann
  */
 struct AOODecline : public AOOMessage {
   int32_t source_id = 0;
   int32_t sink_id = 0;
+  int32_t stream_id = 0;
 
   void logData() override {
-    LOGI("AOODecline: source_id=%d, sink_id=%d", source_id, sink_id);
+    LOGI("AOODecline: source_id=%d, sink_id=%d, stream_id=%d", source_id,
+         sink_id, stream_id);
   }
 
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
-    snprintf(address, sizeof(address), "/AoO/sink/%d/decline", sink_id);
+    snprintf(address, sizeof(address), "/aoo/sink/%d/decline", sink_id);
 
     uint32_t msg_size = size(address, format);
     uint8_t aao_send_data[msg_size + 1];
@@ -1045,6 +1061,7 @@ struct AOODecline : public AOOMessage {
     data.setAddress(address);
     data.setFormat(format);
     data.write(source_id);
+    data.write(stream_id);
 
     assert(aao_send_data[msg_size] == 0);
     assert(data.size() == msg_size);
@@ -1062,16 +1079,17 @@ struct AOODecline : public AOOMessage {
       LOGE("Invalid decline format: %s", fmt ? fmt : "null");
       return false;
     }
-    sink_id = atoi(data.getAddress() + 10);
+    sink_id = aoo_parse_id(data.getAddress(), "/aoo/sink/");
     source_id = data.readInt32();
+    stream_id = data.readInt32();
     LOGI("AOODecline: source=%d, sink=%d", source_id, sink_id);
     return true;
   }
 
  protected:
-  const char *format = "i";
+  const char *format = "ii";
   uint32_t size(const char *addr, const char *fmt) {
-    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + 4;
+    return OSCData::oscSize(addr) + OSCData::oscFormatSize(fmt) + (2 * 4);
   }
 };
 

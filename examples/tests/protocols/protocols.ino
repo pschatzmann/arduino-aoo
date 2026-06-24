@@ -80,15 +80,17 @@ void testAOOStopSink() {
   sink_stop.source_id = 5;
   sink_stop.sink_id = 15;
   sink_stop.stream_id = 25;
+  sink_stop.last_seq = 99;
   sink_stop.sample_offset = 1000;
   assert(sink_stop.send(queue));
 
   AOOStopSink rcv;
   rcv.parse(buffer.data(), buffer.size());
-  
+
   assert(rcv.source_id == 5);
   assert(rcv.sink_id == 15);
   assert(rcv.stream_id == 25);
+  assert(rcv.last_seq == 99);
   assert(rcv.sample_offset == 1000);
 }
 
@@ -265,7 +267,7 @@ void testAOOInvite() {
   AOOInvite invite;
   invite.source_id = 30;
   invite.sink_id = 40;
-  invite.metadata = "hello";
+  invite.stream_id = 50;
   assert(invite.send(queue));
 
   AOOInvite rcv;
@@ -273,7 +275,7 @@ void testAOOInvite() {
 
   assert(rcv.source_id == 30);
   assert(rcv.sink_id == 40);
-  assert(strcmp(rcv.metadata, "hello") == 0);
+  assert(rcv.stream_id == 50);
 }
 
 void testAOOUninvite() {
@@ -283,6 +285,7 @@ void testAOOUninvite() {
   AOOUninvite uninvite;
   uninvite.source_id = 31;
   uninvite.sink_id = 41;
+  uninvite.stream_id = 51;
   assert(uninvite.send(queue));
 
   AOOUninvite rcv;
@@ -290,6 +293,7 @@ void testAOOUninvite() {
 
   assert(rcv.source_id == 31);
   assert(rcv.sink_id == 41);
+  assert(rcv.stream_id == 51);
 }
 
 void testAOODecline() {
@@ -299,6 +303,7 @@ void testAOODecline() {
   AOODecline decline;
   decline.source_id = 32;
   decline.sink_id = 42;
+  decline.stream_id = 52;
   assert(decline.send(queue));
 
   AOODecline rcv;
@@ -306,6 +311,7 @@ void testAOODecline() {
 
   assert(rcv.source_id == 32);
   assert(rcv.sink_id == 42);
+  assert(rcv.stream_id == 52);
 }
 
 void setup() {

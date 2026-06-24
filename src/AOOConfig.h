@@ -26,6 +26,11 @@
 #define AOO_JITTER_BUFFER_DEPTH 5
 #endif
 
+/// Default ping interval in ms
+#ifndef AOO_PING_INTERVAL_MS
+#define AOO_PING_INTERVAL_MS 1000
+#endif
+
 /// Default packet recovery wait time in ms before requesting resend
 #ifndef AOO_RECOVERY_WAIT_MS
 #define AOO_RECOVERY_WAIT_MS 20
@@ -76,6 +81,8 @@ struct AOOSenderConfig : public AudioInfo {
   int redundancy = 1;
   /// Codec delay in samples (communicated to sinks for alignment)
   int codec_delay_samples = 0;
+  /// Ping interval in ms (how often to send keep-alive pings to sinks)
+  int ping_interval_ms = AOO_PING_INTERVAL_MS;
   /// Prepend a uint64 length prefix before each OSC message (for non-UDP)
   bool length_prefix = false;
   /// Log raw OSC message headers for debugging

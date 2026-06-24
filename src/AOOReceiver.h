@@ -230,20 +230,22 @@ class AOOReceiver {
   }
 
   /// Send an invite to a source, requesting it to stream to this sink
-  bool invite(int source_id) {
+  bool invite(int source_id, int32_t token = 0) {
     if (p_io == nullptr) return false;
     AOOInvite inv;
     inv.source_id = source_id;
     inv.sink_id = sink_id;
+    inv.stream_id = token;
     return inv.send(*p_io);
   }
 
   /// Send an uninvite to a source, asking it to stop streaming
-  bool uninvite(int source_id) {
+  bool uninvite(int source_id, int32_t token = 0) {
     if (p_io == nullptr) return false;
     AOOUninvite uninv;
     uninv.source_id = source_id;
     uninv.sink_id = sink_id;
+    uninv.stream_id = token;
     return uninv.send(*p_io);
   }
 
@@ -320,7 +322,7 @@ class AOOReceiver {
   bool has_data_this_cycle_ = false;
 
   int getSinkIdFromAddress(const char *address) {
-    if (StrView(address).startsWith("/AoO/sink/")) {
+    if (StrView(address).startsWith("/aoo/sink/")) {
       return StrView(address + 10).toInt();
     }
     return -1;
