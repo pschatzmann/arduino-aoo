@@ -27,10 +27,10 @@ namespace arduino_aoo {
  * @author Phil Schatzmann
  * @copyright GPLv3
  */
-class AOOSink {
+class AOOReceiver {
  public:
   /// Default constructor; registers the built-in PCM decoder
-  AOOSink() {
+  AOOReceiver() {
     addDecoder("pcm",
                []() { return (AudioDecoder *)new DecoderNetworkFormat(); });
   }
@@ -38,7 +38,7 @@ class AOOSink {
   /// @param id unique sink identifier used in AOO addressing
   /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination (e.g. I2SStream)
-  AOOSink(int id, AOOStream &io, AudioStream &out) : AOOSink() {
+  AOOReceiver(int id, AOOStream &io, AudioStream &out) : AOOReceiver() {
     sink_id = id;
     setStream(io);
     setOutput(out);
@@ -47,13 +47,13 @@ class AOOSink {
   /// @param id unique sink identifier used in AOO addressing
   /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination
-  AOOSink(int id, AOOStream &io, AudioOutput &out) : AOOSink() {
+  AOOReceiver(int id, AOOStream &io, AudioOutput &out) : AOOReceiver() {
     sink_id = id;
     setStream(io);
     setOutput(out);
   }
 
-  ~AOOSink() { end(); }
+  ~AOOReceiver() { end(); }
 
   /// Defines the communication stream for receiving/sending AOO messages
   void setStream(AOOStream &io) { p_io = &io; }
@@ -80,8 +80,8 @@ class AOOSink {
   int id() { return sink_id; }
 
   /// Provides a default configuration pre-filled with current values
-  AOOSinkConfig defaultConfig() {
-    AOOSinkConfig cfg;
+  AOOReceiverConfig defaultConfig() {
+    AOOReceiverConfig cfg;
     cfg.copyFrom(output_info);
     cfg.id = sink_id;
     cfg.jitter_buffer_depth = jitter_depth_;
@@ -95,7 +95,7 @@ class AOOSink {
   }
 
   /// Starts the processing with full configuration
-  bool begin(AOOSinkConfig cfg) {
+  bool begin(AOOReceiverConfig cfg) {
     if (cfg.id != 0) sink_id = cfg.id;
     jitter_depth_ = cfg.jitter_buffer_depth;
     adaptive_resample_ = cfg.adaptive_resampling;
@@ -115,7 +115,6 @@ class AOOSink {
     return begin();
   }
 
-  /// Starts the processing: chain OutputMixer->Print
   bool begin() {
     if (p_io == nullptr) {
       LOGE("Input not set");
@@ -123,6 +122,10 @@ class AOOSink {
     }
     if (p_out == nullptr) {
       LOGE("Output not set");
+      return false;
+    }
+    if (!p_io->begin()) {
+      LOGE("Stream begin failed");
       return false;
     }
     mixer.setOutput(*p_out);
@@ -760,12 +763,12 @@ class AOOSink {
  * @author Phil Schatzmann
  * @copyright GPLv3
  */
-class AOOSinkSingle : public AOOSink {
+class AOOReceiverSingle : public AOOReceiver {
  public:
   /// @param id unique sink identifier used in AOO addressing
   /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination (e.g. I2SStream)
-  AOOSinkSingle(int id, AOOStream &io, AudioStream &out) : AOOSink() {
+  AOOReceiverSingle(int id, AOOStream &io, AudioStream &out) : AOOReceiver() {
     sink_id = id;
     setStream(io);
     setOutput(out);
@@ -774,7 +777,7 @@ class AOOSinkSingle : public AOOSink {
   /// @param id unique sink identifier used in AOO addressing
   /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination
-  AOOSinkSingle(int id, AOOStream &io, AudioOutput &out) : AOOSink() {
+  AOOReceiverSingle(int id, AOOStream &io, AudioOutput &out) : AOOReceiver() {
     sink_id = id;
     setStream(io);
     setOutput(out);
@@ -783,7 +786,7 @@ class AOOSinkSingle : public AOOSink {
   /// @param id unique sink identifier used in AOO addressing
   /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out raw print output destination
-  AOOSinkSingle(int id, AOOStream &io, Print &out) : AOOSink() {
+  AOOReceiverSingle(int id, AOOStream &io, Print &out) : AOOReceiver() {
     sink_id = id;
     setStream(io);
     setOutput(out);
@@ -794,7 +797,7 @@ class AOOSinkSingle : public AOOSink {
     stream_id = 0;
     buffer.resize(buffer_count);
     copier.begin(*p_out, queue);
-    return AOOSink::begin();
+    return AOOReceiver::begin();
   }
 
   /// Sets up the processing chain: we write the data to a buffer first.

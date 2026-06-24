@@ -55,13 +55,13 @@ struct AOOSinkTarget {
 };
 
 /**
- * @brief Configuration for AOOSource
+ * @brief Configuration for AOOSender
  * @ingroup aoo
  * @author Phil Schatzmann
  */
-struct AOOSourceConfig : public AudioInfo {
-  AOOSourceConfig() = default;
-  AOOSourceConfig(int sampleRate, int ch, int bits)
+struct AOOSenderConfig : public AudioInfo {
+  AOOSenderConfig() = default;
+  AOOSenderConfig(int sampleRate, int ch, int bits)
       : AudioInfo(sampleRate, ch, bits) {}
 
   /// Unique source identifier used in AOO addressing
@@ -83,13 +83,13 @@ struct AOOSourceConfig : public AudioInfo {
 };
 
 /**
- * @brief Configuration for AOOSink
+ * @brief Configuration for AOOReceiver
  * @ingroup aoo
  * @author Phil Schatzmann
  */
-struct AOOSinkConfig : public AudioInfo {
-  AOOSinkConfig() = default;
-  AOOSinkConfig(int sampleRate, int ch, int bits)
+struct AOOReceiverConfig : public AudioInfo {
+  AOOReceiverConfig() = default;
+  AOOReceiverConfig(int sampleRate, int ch, int bits)
       : AudioInfo(sampleRate, ch, bits) {}
 
   /// Unique sink identifier used in AOO addressing; 0 = auto-assign from first message

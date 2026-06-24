@@ -20,8 +20,8 @@
  *
  */
 
-#include "AOOSink.h"
-#include "AOOSource.h"
+#include "AOOReceiver.h"
+#include "AOOSender.h"
 #include "AudioTools.h"
 #include "AudioTools/Communication/OSCData.h"
 #include "aoo/AOOProtocol.h"

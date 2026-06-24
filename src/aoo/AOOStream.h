@@ -1,6 +1,7 @@
 #pragma once
 #include "AudioTools.h"
 #include "AudioTools/Communication/HDLCStream.h"
+#include "WiFiUdp.h"
 
 namespace arduino_aoo {
 
@@ -14,16 +15,18 @@ namespace arduino_aoo {
  */
 class AOOStream : public Stream {
  public:
-  /// Set the target address for subsequent writes
+  virtual bool begin() { return true; }
+  virtual void end() {}
   virtual void setRemote(IPAddress ip, uint16_t port) {}
-  /// Configured send target address
   virtual IPAddress remoteIP() { return IPAddress(); }
-  /// Configured send target port
   virtual uint16_t remotePort() { return 0; }
-  /// Address of the last received packet's sender (for replies)
   virtual IPAddress senderIP() { return IPAddress(); }
-  /// Port of the last received packet's sender (for replies)
   virtual uint16_t senderPort() { return 0; }
+
+  int available() override { return 0; }
+  int read() override { return -1; }
+  int peek() override { return -1; }
+  size_t write(uint8_t) override { return 0; }
 };
 
 /**
@@ -39,9 +42,24 @@ class AOOStreamUDP : public AOOStream {
  public:
   AOOStreamUDP() = default;
 
-  AOOStreamUDP(IPAddress a, uint16_t port) { setRemote(a, port); }
+  AOOStreamUDP(IPAddress address, uint16_t port, bool multicast = false) {
+    setRemote(address, port);
+    is_multicast = multicast;
+  }
+  AOOStreamUDP(uint16_t port) {
+    remote_port_ext = port;
+  }
 
-  AOOStreamUDP(int remote_port) { remote_port_ext = remote_port; }
+  void setMulticast(bool flag) { is_multicast = flag; }
+
+  bool begin() override {
+    if (is_multicast) {
+      return udp.beginMulticast(remote_address_ext, remote_port_ext);
+    }
+    return udp.begin(remote_port_ext);
+  }
+
+  void end() override { udp.stop(); }
 
   int availableForWrite() override { return udp.availableForWrite(); }
 
@@ -51,21 +69,6 @@ class AOOStreamUDP : public AOOStream {
       size = udp.parsePacket();
     }
     return size;
-  }
-
-  bool begin(uint16_t port) {
-    remote_port_ext = port;
-    return udp.begin(port);
-  }
-
-  bool begin(IPAddress address, uint16_t port) {
-    setRemote(address, port);
-    return udp.begin(port);
-  }
-
-  bool beginMulticast(IPAddress address, uint16_t port) {
-    setRemote(address, port);
-    return udp.beginMulticast(address, port);
   }
 
   uint16_t remotePort() override { return remote_port_ext; }
@@ -89,7 +92,7 @@ class AOOStreamUDP : public AOOStream {
     return result;
   }
 
-  size_t readBytes(uint8_t* data, size_t len)  {
+  size_t readBytes(uint8_t* data, size_t len) {
     if (available() > 0) {
       return udp.readBytes(data, len);
     }
@@ -105,7 +108,8 @@ class AOOStreamUDP : public AOOStream {
  protected:
   UDP_t udp;
   uint16_t remote_port_ext = 0;
-  IPAddress remote_address_ext;
+  IPAddress remote_address_ext{};
+  bool is_multicast = false;
 };
 
 /**
@@ -124,7 +128,7 @@ class AOOStreamSerial : public AOOStream {
   AOOStreamSerial(Stream& serial = Serial, int maxFrameSize = 2048)
       : serial_(serial), max_frame_size(maxFrameSize) {}
 
-  bool begin() {
+  bool begin() override {
     hdlc.resize(max_frame_size);
     hdlc.setStream(serial_);
     return true;

@@ -35,17 +35,17 @@ namespace arduino_aoo {
  * @author Phil Schatzmann
  * @copyright GPLv3
  */
-class AOOSource : public AudioOutput {
+class AOOSender : public AudioOutput {
  public:
   /// @param id unique source identifier used in AOO addressing
   /// @param output transport stream for sending/receiving OSC messages (e.g. AOOStreamUDP)
   /// @param bufferTimeMs how long sent data is kept for resend requests (ms); 0 disables
-  AOOSource(int id, AOOStream &output, uint16_t bufferTimeMs) {
+  AOOSender(int id, AOOStream &output, uint16_t bufferTimeMs) {
     source_id = id;
     p_output = &output;
     aao_out_buffer.setTimeout(bufferTimeMs);
   }
-  ~AOOSource() { end(); };
+  ~AOOSender() { end(); };
 
   /// Defines the output stream to which we send the AOO data
   void setStream(AOOStream &output) { p_output = &output; }
@@ -66,8 +66,8 @@ class AOOSource : public AudioOutput {
   }
 
   /// Provides a default configuration pre-filled with current values
-  AOOSourceConfig defaultConfig() {
-    AOOSourceConfig cfg;
+  AOOSenderConfig defaultConfig() {
+    AOOSenderConfig cfg;
     cfg.copyFrom(audioInfo());
     cfg.id = source_id;
     cfg.sink_targets = sink_targets;
@@ -80,7 +80,7 @@ class AOOSource : public AudioOutput {
   }
 
   /// Starts the processing with full configuration
-  bool begin(AOOSourceConfig cfg) {
+  bool begin(AOOSenderConfig cfg) {
     if (cfg.id != 0) source_id = cfg.id;
     sink_targets = cfg.sink_targets;
     max_frame_size = cfg.max_frame_size;
@@ -104,6 +104,11 @@ class AOOSource : public AudioOutput {
     }
     if (p_output == nullptr) {
       LOGE("Output not set");
+      return false;
+    }
+
+    if (!p_output->begin()) {
+      LOGE("Stream begin failed");
       return false;
     }
 
@@ -199,7 +204,7 @@ class AOOSource : public AudioOutput {
   /// Write output of encoder to the defined output stream
   class EncoderOutput : public AudioOutput {
    public:
-    AOOSource *source = nullptr;
+    AOOSender *source = nullptr;
     size_t write(const uint8_t *data, size_t len) override {
       return source->aoo_send_data(data, len) ? len : 0;
     }
@@ -277,7 +282,7 @@ class AOOSource : public AudioOutput {
       for (int r = 0; r < redundancy; r++) {
         for (int32_t i = 0; i < num_frames; i++) {
           int32_t offset = i * max_frame_size;
-          int32_t frame_len = min((int32_t)(len - offset), max_frame_size);
+          int32_t frame_len = min((int32_t)(len - offset), (int32_t)max_frame_size);
 
           AOOData aoo_data;
           aoo_data.source_id = source_id;

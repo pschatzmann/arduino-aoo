@@ -3,7 +3,7 @@
  * We support the decoding of pcm and opus.
  * The audio output is done to the I2SStream.
  */
-
+#include "WiFi.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpus.h" // https://github.com/pschatzmann/arduino-libopus
 #include "AOO.h"
@@ -17,10 +17,10 @@
 
 const char* ssid = "SSID";
 const char* password = "password";
-AOOStreamUDP udp;
-const int udpPort = 7000;
+const int udpPort = 9998;
+AOOStreamUDP udp(udpPort);
 I2SStream i2s;  // or any other e.g. AudioBoardStream i2s(AudioKitEs8388V1);
-AOOSink aoo_sink(1, udp, i2s); // or AOOSinkSingle
+AOOReceiver aoo_receiver(1, udp, i2s); // or AOOReceiverSingle
 
 void setup() {
   Serial.begin(115200);
@@ -29,9 +29,8 @@ void setup() {
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
-
-  // start UDP receive
-  udp.begin(udpPort);
+  Serial.print("Connected to WiFi. IP address: ");
+  Serial.println(WiFi.localIP());
 
   // start I2S
   Serial.println("starting I2S...");
@@ -39,13 +38,13 @@ void setup() {
   i2s.begin(config);
 
   // register decoders
-  aoo_sink.addDecoder("opus",[]() { return (AudioDecoder *)new OpusAudioDecoder(); });
+  aoo_receiver.addDecoder("opus",[]() { return (AudioDecoder *)new OpusAudioDecoder(); });
 
   // --- Simple: start with no config (auto-detect from first message) ---
-  aoo_sink.begin();
+  aoo_receiver.begin();
 
   // --- Alternative: start with full configuration ---
-  // auto cfg = aoo_sink.defaultConfig();
+  // auto cfg = aoo_receiver.defaultConfig();
   // cfg.sample_rate = 44100;
   // cfg.channels = 2;
   // cfg.bits_per_sample = 16;
@@ -64,14 +63,14 @@ void setup() {
   // // cfg.recovery_wait_ms = 30;
   // // cfg.recovery_max_requests = 5;
   //
-  // aoo_sink.begin(cfg);
+  // aoo_receiver.begin(cfg);
   //
   // // Invite a specific source to start streaming to us
-  // // aoo_sink.invite(1);
+  // // aoo_receiver.invite(1);
 
   Serial.println("started...");
 }
 
 void loop() {
-  aoo_sink.copy();
+  aoo_receiver.copy();
 }

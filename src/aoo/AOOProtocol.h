@@ -1,12 +1,17 @@
 #pragma once
 #include <vector>
-#include "../AOOConfig.h"
+#include "AOOConfig.h"
 #include "AudioTools.h"
 #include "AudioTools/Communication/OSCData.h"
 #include "Print.h"
 #include "stdint.h"
+#include <algorithm>
 
 namespace arduino_aoo {
+
+using std::min;
+using std::max;
+  
 /**
  * @brief  abstract aoo protocol message
  * @ingroup aoo-protocol

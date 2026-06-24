@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 # set the project name
-project(aoo-sink)
+project(aoo-receiver)
 set (CMAKE_CXX_STANDARD 11)
 set (DCMAKE_CXX_FLAGS "-Werror")
 
@@ -23,13 +23,13 @@ file(DOWNLOAD https://raw.githubusercontent.com/mackron/miniaudio/master/miniaud
 
 
 # build sketch as executable
-set_source_files_properties(aoo-sink.ino PROPERTIES LANGUAGE CXX)
-add_executable (aoo-sink aoo-sink.ino)
+set_source_files_properties(aoo-receiver.ino PROPERTIES LANGUAGE CXX)
+add_executable (aoo-receiver aoo-receiver.ino)
 
 # set preprocessor defines
 target_compile_definitions(arduino_emulator PUBLIC -DDEFINE_MAIN)
-target_compile_definitions(aoo-sink PUBLIC -DARDUINO -DIS_DESKTOP)
+target_compile_definitions(aoo-receiver PUBLIC -DARDUINO -DIS_DESKTOP)
 # access to miniaudio in sketch directory
-target_include_directories(aoo-sink PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(aoo-receiver PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 # specify libraries
-target_link_libraries(aoo-sink arduino_libopus arduino_emulator arduino-audio-tools arduino_aoo)
+target_link_libraries(aoo-receiver arduino_libopus arduino_emulator arduino-audio-tools arduino_aoo)

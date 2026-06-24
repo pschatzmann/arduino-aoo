@@ -6,7 +6,7 @@
 const int udpPort = 9999;
 const char *ssid = "your-ssid";
 const char *password = "your-password";
-AOOStreamUDP udp;
+AOOStreamUDP udp(IPAddress(), udpPort);
 OSCData osc;
 Vector<uint8_t> data(1024 * 2);
 HexDumpOutput dump(Serial);
@@ -18,7 +18,7 @@ void setup() {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
 
-  udp.begin(udpPort);
+  udp.begin();
 }
 
 // parse osc message and print information

@@ -40,8 +40,8 @@ AOOStreamQueue sink_stream{sink_queue};
 SingleBuffer<uint8_t> capture_buf{1024 * 8};
 QueueStream<uint8_t> capture_stream{capture_buf};
 
-AOOSource aoo_source(1, src_stream, 0);
-AOOSink aoo_sink;
+AOOSender aoo_sender(1, src_stream, 0);
+AOOReceiver aoo_receiver;
 
 const int TEST_SAMPLES = 256;
 const int BYTES = TEST_SAMPLES * 2;
@@ -76,18 +76,18 @@ void testLoopback() {
   capture_stream.begin();
 
   // Source sends to src_stream with length prefix for message framing
-  aoo_source.setStream(src_stream);
-  auto src_cfg = aoo_source.defaultConfig();
+  aoo_sender.setStream(src_stream);
+  auto src_cfg = aoo_sender.defaultConfig();
   src_cfg.copyFrom(info);
   src_cfg.length_prefix = true;
-  aoo_source.begin(src_cfg);
+  aoo_sender.begin(src_cfg);
 
   // begin() wrote the start message to src_buf — deliver it to sink
   deliverToSink();
 
   // Source writes audio data (write() calls receive() which reads
   // from src_stream, but src_buf is empty now so it's a no-op)
-  size_t written = aoo_source.write((const uint8_t *)test_data, BYTES);
+  size_t written = aoo_sender.write((const uint8_t *)test_data, BYTES);
 
   Serial.print("Source wrote ");
   Serial.print((int)written);
@@ -102,15 +102,15 @@ void testLoopback() {
   assert(sink_buf.available() > 0);
 
   // Setup sink with length prefix to match source framing
-  aoo_sink.setStream(sink_stream);
-  aoo_sink.setOutput((Print &)capture_stream);
-  auto sink_cfg = aoo_sink.defaultConfig();
+  aoo_receiver.setStream(sink_stream);
+  aoo_receiver.setOutput((Print &)capture_stream);
+  auto sink_cfg = aoo_receiver.defaultConfig();
   sink_cfg.copyFrom(info);
   sink_cfg.length_prefix = true;
-  aoo_sink.begin(sink_cfg);
+  aoo_receiver.begin(sink_cfg);
 
   // Process all messages
-  aoo_sink.copy();
+  aoo_receiver.copy();
 
   int available = capture_buf.available();
   Serial.print("Sink captured ");

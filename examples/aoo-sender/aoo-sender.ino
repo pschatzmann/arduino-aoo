@@ -3,21 +3,21 @@
  * Since the generation is too fast, we throttle the generated audio
  * to the correct speed.
  */
+#include "WiFi.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpus.h"
 #include "AOO.h"
 
 const char *ssid = "ssid";
 const char *password = "password";
-const int udpPort = 7000;
+const int udpPort = 9999;
 AudioInfo info(22000, 1, 16);
 SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
-AOOStreamUDP udp;
-IPAddress udpAddress(192, 168, 1, 255);
-AOOSource aoo_source(1, udp, 100);
-Throttle throttle(aoo_source);
-StreamCopy copier(throttle, sound);
+Throttle throttled_in(sound);
+AOOStreamUDP udp(IPAddress(192, 168, 1, 44), udpPort);
+AOOSender aoo_sender(1, udp, 100);
+StreamCopy copier(aoo_sender, throttled_in);
 OpusAudioEncoder opus;
 
 void setup() {
@@ -28,24 +28,21 @@ void setup() {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
 
-  // Setup sine wave
+  // Setup sine wave input
   sineWave.begin(info, N_B4);
-
-  // Define target udp address and port
-  udp.begin(udpAddress, udpPort);
+  throttled_in.begin(info);
 
   // --- Simple: start with AudioInfo only (broadcast, PCM) ---
-  throttle.begin(info);
-  aoo_source.begin(info);
+  aoo_sender.begin(info);
 
   // --- Alternative: start with full configuration ---
-  // auto cfg = aoo_source.defaultConfig();
+  // auto cfg = aoo_sender.defaultConfig();
   // cfg.sample_rate = 22000;
   // cfg.channels = 1;
   // cfg.bits_per_sample = 16;
   //
   // // Use Opus encoder instead of PCM
-  // // aoo_source.setEncoder("opus", opus);
+  // // aoo_sender.setEncoder("opus", opus);
   //
   // // Send each block twice for WiFi loss tolerance
   // // cfg.redundancy = 2;
@@ -63,7 +60,7 @@ void setup() {
   // // cfg.sink_targets = {{1}};
   //
   // throttle.begin(cfg);
-  // aoo_source.begin(cfg);
+  // aoo_sender.begin(cfg);
 
   Serial.println("started...");
 }
