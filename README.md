@@ -6,7 +6,7 @@ This is a header-only C++ implementation that is using the Arduino Networking AP
 
 #### Documentation
 
-- [AoO V2.0 Protocol](https://git.iem.at/aoo/aoo/-/blob/cmake_update/doc/aoo_protocol.md) 
+- [AoO V2.0 Protocol](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md) 
 - [OSC V1.0 Specification](https://opensoundcontrol.stanford.edu/spec-1_0.html)
 
 
