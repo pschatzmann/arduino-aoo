@@ -5,7 +5,6 @@
  */
 
 #include "AudioTools.h"
-#include "AudioTools/Communication/UDPStream.h"
 #include "AudioTools/AudioCodecs/CodecOpus.h" // https://github.com/pschatzmann/arduino-libopus
 #include "AOO.h"
 // #include "AudioTools/AudioLibs/AudioBoardStream.h"
@@ -18,7 +17,7 @@
 
 const char* ssid = "SSID";
 const char* password = "password";
-UDPStream udp(ssid, password);
+AOOStreamUDP udp;
 const int udpPort = 7000;
 I2SStream i2s;  // or any other e.g. AudioBoardStream i2s(AudioKitEs8388V1);
 AOOSink aoo_sink(1, udp, i2s); // or AOOSinkSingle
@@ -26,6 +25,10 @@ AOOSink aoo_sink(1, udp, i2s); // or AOOSinkSingle
 void setup() {
   Serial.begin(115200);
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);
+
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
 
   // start UDP receive
   udp.begin(udpPort);

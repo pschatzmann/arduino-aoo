@@ -4,7 +4,6 @@
  * to the correct speed.
  */
 #include "AudioTools.h"
-#include "AudioTools/Communication/UDPStream.h"
 #include "AudioTools/AudioCodecs/CodecOpus.h"
 #include "AOO.h"
 
@@ -14,7 +13,7 @@ const int udpPort = 7000;
 AudioInfo info(22000, 1, 16);
 SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
-UDPStream udp(ssid, password);
+AOOStreamUDP udp;
 IPAddress udpAddress(192, 168, 1, 255);
 AOOSource aoo_source(1, udp, 100);
 Throttle throttle(aoo_source);
@@ -25,10 +24,14 @@ void setup() {
   Serial.begin(115200);
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);
 
+  // Connect to WiFi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+
   // Setup sine wave
   sineWave.begin(info, N_B4);
 
-  // Define udp address and port
+  // Define target udp address and port
   udp.begin(udpAddress, udpPort);
 
   // --- Simple: start with AudioInfo only (broadcast, PCM) ---

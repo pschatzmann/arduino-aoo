@@ -2,12 +2,11 @@
  *   @brief Receive OSC messages over UDP and print them to the serial console.
  */
 #include "AOO.h"
-#include "AudioTools/Communication/UDPStream.h"
 
 const int udpPort = 9999;
 const char *ssid = "your-ssid";
 const char *password = "your-password";
-UDPStream udp(ssid, password);
+AOOStreamUDP udp;
 OSCData osc;
 Vector<uint8_t> data(1024 * 2);
 HexDumpOutput dump(Serial);
@@ -16,7 +15,9 @@ void setup() {
   Serial.begin(115200);
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);
 
-  // start UDP receive
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+
   udp.begin(udpPort);
 }
 

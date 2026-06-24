@@ -6,6 +6,7 @@
 //#include "AudioTools/AudioCodecs/CodecOpus.h"
 #include "AudioTools/CoreAudio/AudioStreamsConverter.h"
 #include "AudioTools/Communication/OSCData.h"
+#include "aoo/AOOStream.h"
 #include "aoo/AOOBuffers.h"
 #include "aoo/AOOClockSync.h"
 #include "aoo/AOOPacketRecovery.h"
@@ -35,18 +36,18 @@ class AOOSink {
   }
 
   /// @param id unique sink identifier used in AOO addressing
-  /// @param io transport stream for receiving/sending OSC messages (e.g. UDPStream)
+  /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination (e.g. I2SStream)
-  AOOSink(int id, Stream &io, AudioStream &out) : AOOSink() {
+  AOOSink(int id, AOOStream &io, AudioStream &out) : AOOSink() {
     sink_id = id;
     setStream(io);
     setOutput(out);
   }
 
   /// @param id unique sink identifier used in AOO addressing
-  /// @param io transport stream for receiving/sending OSC messages (e.g. UDPStream)
+  /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination
-  AOOSink(int id, Stream &io, AudioOutput &out) : AOOSink() {
+  AOOSink(int id, AOOStream &io, AudioOutput &out) : AOOSink() {
     sink_id = id;
     setStream(io);
     setOutput(out);
@@ -55,7 +56,7 @@ class AOOSink {
   ~AOOSink() { end(); }
 
   /// Defines the communication stream for receiving/sending AOO messages
-  void setStream(Stream &io) { p_io = &io; }
+  void setStream(AOOStream &io) { p_io = &io; }
 
   /// Defines the audio output
   void setOutput(AudioOutput &out) {
@@ -273,6 +274,8 @@ class AOOSink {
     int32_t block_size = 0;
     int32_t channel_onset = 0;
     int32_t codec_delay_samples = 0;
+    IPAddress sender_ip;
+    uint16_t sender_port = 0;
     AudioInfo audio_info{0, 0, 0};
     AudioDecoder *p_decoder = nullptr;
     FormatConverterStream format_converter;
@@ -297,7 +300,7 @@ class AOOSink {
   bool is_active = false;
   bool is_log_osc_active = false;
   int32_t sink_id = 0;
-  Stream *p_io = nullptr;
+  AOOStream *p_io = nullptr;
   OutputMixer<int16_t> mixer;
   CodecFactory codec_factory;
   std::vector<uint8_t> aao_in_buffer;
@@ -440,6 +443,8 @@ class AOOSink {
     info.block_size = tmp.block_size;
     info.codec_delay_samples = tmp.codec_delay_samples;
     info.format_str = tmp.format_str;
+    info.sender_ip = p_io->senderIP();
+    info.sender_port = p_io->senderPort();
 
     AudioDecoder *p_dec = codec_factory.createDecoder(tmp.format_str.c_str());
     if (p_dec == nullptr) {
@@ -587,6 +592,8 @@ class AOOSink {
     int32_t total_size = aoo_data.total_size;
 
     AAOSourceLine &info = getSourceLine(source_id, sink_id, stream_id);
+    info.sender_ip = p_io->senderIP();
+    info.sender_port = p_io->senderPort();
     if (aoo_data.channel_onset != info.channel_onset) {
       info.channel_onset = aoo_data.channel_onset;
       if (info.channel_onset != 0) {
@@ -712,8 +719,16 @@ class AOOSink {
   virtual void updateReceivedData(AAOSourceLine &info, int seq,
                                   const uint8_t *data, size_t len) {}
 
+  /// Target the stream to a specific source's address for replies
+  void retargetTo(IPAddress ip, uint16_t port) {
+    if ((uint32_t)ip != 0) {
+      p_io->setRemote(ip, port);
+    }
+  }
+
   bool aooSendRequestData(AAOSourceLine &info, int32_t seq, int32_t frame) {
     LOGI("Requesting resend seq %d from source %d", seq, info.source_id);
+    retargetTo(info.sender_ip, info.sender_port);
     AOOResendData data;
     data.source_id = info.source_id;
     data.sink_id = sink_id;
@@ -728,6 +743,7 @@ class AOOSink {
   bool aooSendPong(int source_id, uint64_t t1 = 0, uint64_t t2 = 0) {
     TRACED();
     if (p_io == nullptr) return false;
+    retargetTo(p_io->senderIP(), p_io->senderPort());
     AOOPongSource pong;
     pong.source_id = source_id;
     pong.sink_id = sink_id;
@@ -747,27 +763,27 @@ class AOOSink {
 class AOOSinkSingle : public AOOSink {
  public:
   /// @param id unique sink identifier used in AOO addressing
-  /// @param io transport stream for receiving/sending OSC messages (e.g. UDPStream)
+  /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination (e.g. I2SStream)
-  AOOSinkSingle(int id, Stream &io, AudioStream &out) : AOOSink() {
+  AOOSinkSingle(int id, AOOStream &io, AudioStream &out) : AOOSink() {
     sink_id = id;
     setStream(io);
     setOutput(out);
   }
 
   /// @param id unique sink identifier used in AOO addressing
-  /// @param io transport stream for receiving/sending OSC messages (e.g. UDPStream)
+  /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out audio output destination
-  AOOSinkSingle(int id, Stream &io, AudioOutput &out) : AOOSink() {
+  AOOSinkSingle(int id, AOOStream &io, AudioOutput &out) : AOOSink() {
     sink_id = id;
     setStream(io);
     setOutput(out);
   }
 
   /// @param id unique sink identifier used in AOO addressing
-  /// @param io transport stream for receiving/sending OSC messages (e.g. UDPStream)
+  /// @param io transport stream for receiving/sending OSC messages (e.g. AOOStreamUDP)
   /// @param out raw print output destination
-  AOOSinkSingle(int id, Stream &io, Print &out) : AOOSink() {
+  AOOSinkSingle(int id, AOOStream &io, Print &out) : AOOSink() {
     sink_id = id;
     setStream(io);
     setOutput(out);

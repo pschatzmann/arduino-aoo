@@ -8,13 +8,33 @@
 #include "AudioTools.h"
 #include "AOO.h"
 
+/// AOOStream wrapper around any Stream for non-network use (e.g. testing)
+class AOOStreamQueue : public AOOStream {
+ public:
+  AOOStreamQueue(Stream &s) : p_stream(&s) {}
+  int available() override { return p_stream->available(); }
+  int read() override { return p_stream->read(); }
+  int peek() override { return p_stream->peek(); }
+  size_t readBytes(uint8_t *buf, size_t len) {
+    return p_stream->readBytes(buf, len);
+  }
+  size_t write(const uint8_t *data, size_t len) override {
+    return p_stream->write(data, len);
+  }
+  size_t write(uint8_t val) override { return p_stream->write(val); }
+ protected:
+  Stream *p_stream;
+};
+
 // Source writes OSC messages here
 SingleBuffer<uint8_t> src_buf{1024 * 16};
-QueueStream<uint8_t> src_stream{src_buf};
+QueueStream<uint8_t> src_queue{src_buf};
+AOOStreamQueue src_stream{src_queue};
 
 // Sink reads OSC messages from here
 SingleBuffer<uint8_t> sink_buf{1024 * 16};
-QueueStream<uint8_t> sink_stream{sink_buf};
+QueueStream<uint8_t> sink_queue{sink_buf};
+AOOStreamQueue sink_stream{sink_queue};
 
 // Sink decoded audio output
 SingleBuffer<uint8_t> capture_buf{1024 * 8};
@@ -51,8 +71,8 @@ void testLoopback() {
   src_buf.clear();
   sink_buf.clear();
   capture_buf.clear();
-  src_stream.begin();
-  sink_stream.begin();
+  src_queue.begin();
+  sink_queue.begin();
   capture_stream.begin();
 
   // Source sends to src_stream with length prefix for message framing

@@ -4,7 +4,7 @@
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
 #include "AudioTools/CoreAudio/AudioOutput.h"
 #include "AudioTools/Communication/OSCData.h"
-#include "AudioTools/Communication/UDPStream.h"
+#include "aoo/AOOStream.h"
 #include "aoo/AOOBuffers.h"
 #include "aoo/AOOClockSync.h"
 #include "aoo/AOOProtocol.h"
@@ -13,7 +13,7 @@ namespace arduino_aoo {
 
 /**
  * @brief Audio source for AOO (Audio Over OSC) which is used to send audio data
- * via the indicated output stream (usually a UDPStream). We provide a simple
+ * via the indicated output stream (usually a AOOStreamUDP). We provide a simple
  * implementation which is purely based on the AudioTools library w/o any
  * external dependencies. The call to write() will send the data to the output
  * stream and receive ping and resend requests. If you pause to call write(),
@@ -38,9 +38,9 @@ namespace arduino_aoo {
 class AOOSource : public AudioOutput {
  public:
   /// @param id unique source identifier used in AOO addressing
-  /// @param output transport stream for sending/receiving OSC messages (e.g. UDPStream)
+  /// @param output transport stream for sending/receiving OSC messages (e.g. AOOStreamUDP)
   /// @param bufferTimeMs how long sent data is kept for resend requests (ms); 0 disables
-  AOOSource(int id, Stream &output, uint16_t bufferTimeMs) {
+  AOOSource(int id, AOOStream &output, uint16_t bufferTimeMs) {
     source_id = id;
     p_output = &output;
     aao_out_buffer.setTimeout(bufferTimeMs);
@@ -48,7 +48,7 @@ class AOOSource : public AudioOutput {
   ~AOOSource() { end(); };
 
   /// Defines the output stream to which we send the AOO data
-  void setStream(Stream &output) { p_output = &output; }
+  void setStream(AOOStream &output) { p_output = &output; }
 
   /// Defines the encoder if we do not send PCM data
   void setEncoder(const char *format, AudioEncoder &encoder) {
@@ -180,7 +180,7 @@ class AOOSource : public AudioOutput {
   int32_t source_id = 0;
   std::vector<AOOSinkTarget> sink_targets;
   uint64_t ping_timeout = 0;
-  Stream *p_output = nullptr;
+  AOOStream *p_output = nullptr;
   const char *encoder_format = "pcm";
   EncoderNetworkFormat pcm_encoder;
   AudioEncoder *p_encoder = &pcm_encoder;
@@ -236,11 +236,9 @@ class AOOSource : public AudioOutput {
     return ok;
   }
 
-  /// Retarget the stream if it supports setTarget (e.g. UDPStream)
   void setStreamTarget(uint32_t ip, uint16_t port) {
-    auto *udp = dynamic_cast<UDPStream *>(p_output);
-    if (udp != nullptr) {
-      udp->setTarget(IPAddress(ip), port);
+    if (p_output != nullptr) {
+      p_output->setRemote(IPAddress(ip), port);
     }
   }
 
@@ -476,10 +474,9 @@ class AOOSource : public AudioOutput {
       if (t.id == id) return;
     }
     AOOSinkTarget target(id);
-    auto *udp = dynamic_cast<UDPStream *>(p_output);
-    if (udp != nullptr) {
-      target.ip = (uint32_t)udp->remoteIP();
-      target.port = udp->remotePort();
+    if (p_output != nullptr) {
+      target.ip = (uint32_t)p_output->senderIP();
+      target.port = p_output->senderPort();
     }
     sink_targets.push_back(target);
   }
