@@ -3,7 +3,6 @@
 #include "AOOConfig.h"
 #include "AudioTools/AudioCodecs/AudioCodecs.h"
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
-//#include "AudioTools/AudioCodecs/CodecOpus.h"
 #include "AudioTools/CoreAudio/AudioStreamsConverter.h"
 #include "AudioTools/Communication/OSCData.h"
 #include "aoo/AOOStream.h"
@@ -12,6 +11,7 @@
 #include "aoo/AOOPacketRecovery.h"
 #include "aoo/AOOResampler.h"
 #include "aoo/AOOProtocol.h"
+#include "aoo/AOOBinMsg.h"
 
 namespace arduino_aoo {
 
@@ -380,6 +380,13 @@ class AOOReceiver {
     if (aao_in_buffer.size() < msg_size) aao_in_buffer.resize(msg_size);
     size_t read = p_io->readBytes(aao_in_buffer.data(), msg_size);
 
+    // Check for binary message format (used by the official aoo library
+    // for data messages). Binary messages have the high bit set in byte[0];
+    // OSC messages start with '/' (0x2F).
+    if (aoo_is_binary(aao_in_buffer.data(), read)) {
+      return processBinaryMessage(aao_in_buffer.data(), read);
+    }
+
     OSCData data;
     data.setLogActive(is_log_osc_active);
     if (!data.parse(aao_in_buffer.data(), read)) {
@@ -580,6 +587,29 @@ class AOOReceiver {
     return msg_size;
   }
 
+  /// Process a binary-format data message from the official aoo library
+  bool processBinaryMessage(const uint8_t *data, size_t len) {
+    TRACED();
+    AOOData aoo_data;
+    if (!aoo_parse_bin_data(data, len, aoo_data)) {
+      LOGE("Failed to parse binary data message: %d", (int)len);
+      return false;
+    }
+
+    // Check sink_id
+    if (sink_id == 0) {
+      sink_id = aoo_data.sink_id;
+      LOGI("Setting sink_id from binary: %d", sink_id);
+    }
+    if (aoo_data.sink_id != sink_id) {
+      LOGI("Binary message for id %d ignored for id %d", aoo_data.sink_id,
+           sink_id);
+      return false;
+    }
+
+    return processDataFromAOOData(sink_id, aoo_data);
+  }
+
   bool processDataMessage(int sink_id, OSCData &data) {
     TRACED();
     AOOData aoo_data;
@@ -588,7 +618,11 @@ class AOOReceiver {
       LOGE("Failed to parse data message");
       return false;
     }
+    return processDataFromAOOData(sink_id, aoo_data);
+  }
 
+  /// Common data processing for both OSC and binary data messages
+  bool processDataFromAOOData(int sink_id, AOOData &aoo_data) {
     int32_t source_id = aoo_data.source_id;
     int32_t stream_id = aoo_data.stream_id;
     int32_t seq = aoo_data.seq_no;

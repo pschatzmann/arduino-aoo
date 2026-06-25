@@ -314,6 +314,253 @@ void testAOODecline() {
   assert(rcv.stream_id == 52);
 }
 
+// Helper: write a big-endian int32 to a buffer
+static void write_be_int32(uint8_t* buf, int32_t val) {
+  buf[0] = (val >> 24) & 0xFF;
+  buf[1] = (val >> 16) & 0xFF;
+  buf[2] = (val >> 8) & 0xFF;
+  buf[3] = val & 0xFF;
+}
+
+// Helper: write a big-endian uint16 to a buffer
+static void write_be_uint16(uint8_t* buf, uint16_t val) {
+  buf[0] = (val >> 8) & 0xFF;
+  buf[1] = val & 0xFF;
+}
+
+// Helper: write a big-endian double to a buffer
+static void write_be_double(uint8_t* buf, double val) {
+  uint64_t bits;
+  memcpy(&bits, &val, sizeof(bits));
+  for (int i = 7; i >= 0; i--) {
+    buf[7 - i] = (bits >> (i * 8)) & 0xFF;
+  }
+}
+
+// Helper: write a big-endian uint64 to a buffer
+static void write_be_uint64(uint8_t* buf, uint64_t val) {
+  for (int i = 7; i >= 0; i--) {
+    buf[7 - i] = (val >> (i * 8)) & 0xFF;
+  }
+}
+
+void testBinMsgDetection() {
+  Serial.println("testBinMsgDetection");
+
+  // Binary message: high bit set
+  uint8_t bin_msg[] = {0x81, 0x00, 0x02, 0x01};
+  assert(aoo_is_binary(bin_msg, sizeof(bin_msg)) == true);
+
+  // OSC message: starts with '/'
+  uint8_t osc_msg[] = {'/', 'a', 'o', 'o'};
+  assert(aoo_is_binary(osc_msg, sizeof(osc_msg)) == false);
+
+  // Too short
+  uint8_t short_msg[] = {0x81, 0x00, 0x02};
+  assert(aoo_is_binary(short_msg, sizeof(short_msg)) == false);
+}
+
+void testBinDataSimple() {
+  Serial.println("testBinDataSimple");
+
+  // Build a simple binary data message with small IDs, no optional flags
+  // Header: type=0 (source) | 0x80, cmd=0 (data), to=42, from=7
+  // Body: stream_id(4) + seq(4) + channel(1) + flags(1) + data_size(2) + audio(10)
+  uint8_t msg[4 + 12 + 10];
+  memset(msg, 0, sizeof(msg));
+  int pos = 0;
+
+  // Header
+  msg[pos++] = 0x80;   // type=source | 0x80
+  msg[pos++] = 0x00;   // cmd=data, no large IDs
+  msg[pos++] = 42;     // to (sink_id)
+  msg[pos++] = 7;      // from (source_id)
+
+  // Body
+  write_be_int32(msg + pos, 100);  // stream_id
+  pos += 4;
+  write_be_int32(msg + pos, 55);   // sequence
+  pos += 4;
+  msg[pos++] = 3;      // channel
+  msg[pos++] = 0;      // flags (no optional fields)
+  write_be_uint16(msg + pos, 10);  // data_size
+  pos += 2;
+
+  // Audio data
+  for (int i = 0; i < 10; i++) {
+    msg[pos++] = (uint8_t)(i + 1);
+  }
+
+  AOOData out;
+  assert(aoo_parse_bin_data(msg, pos, out));
+  assert(out.sink_id == 42);
+  assert(out.source_id == 7);
+  assert(out.stream_id == 100);
+  assert(out.seq_no == 55);
+  assert(out.channel_onset == 3);
+  assert(out.total_size == 10);
+  assert(out.total_number_of_frames == 1);
+  assert(out.frame_idx == 0);
+  assert(out.audio_data.len == 10);
+  for (int i = 0; i < 10; i++) {
+    assert(out.audio_data.data[i] == (uint8_t)(i + 1));
+  }
+}
+
+void testBinDataWithFlags() {
+  Serial.println("testBinDataWithFlags");
+
+  // Build a binary data message with Frames + SampleRate + TimeStamp flags
+  uint8_t msg[128];
+  memset(msg, 0, sizeof(msg));
+  int pos = 0;
+
+  // Header (small IDs)
+  msg[pos++] = 0x81;   // type=sink | 0x80
+  msg[pos++] = 0x00;   // cmd=data
+  msg[pos++] = 10;     // to (sink_id)
+  msg[pos++] = 20;     // from (source_id)
+
+  // Body
+  write_be_int32(msg + pos, 200);  // stream_id
+  pos += 4;
+  write_be_int32(msg + pos, 99);   // sequence
+  pos += 4;
+  msg[pos++] = 0;      // channel
+  // flags: Frames(0x02) | SampleRate(0x01) | TimeStamp(0x10)
+  msg[pos++] = 0x02 | 0x01 | 0x10;
+  write_be_uint16(msg + pos, 8);   // data_size
+  pos += 2;
+
+  // Frames: total_size(4) + num_frames(2) + frame_index(2)
+  write_be_int32(msg + pos, 1024); // total_size
+  pos += 4;
+  write_be_uint16(msg + pos, 3);   // num_frames
+  pos += 2;
+  write_be_uint16(msg + pos, 1);   // frame_index
+  pos += 2;
+
+  // SampleRate: double (8 bytes)
+  write_be_double(msg + pos, 48000.0);
+  pos += 8;
+
+  // TimeStamp: uint64 (8 bytes)
+  write_be_uint64(msg + pos, 123456789ULL);
+  pos += 8;
+
+  // Audio data (8 bytes)
+  for (int i = 0; i < 8; i++) {
+    msg[pos++] = (uint8_t)(0xA0 + i);
+  }
+
+  AOOData out;
+  assert(aoo_parse_bin_data(msg, pos, out));
+  assert(out.sink_id == 10);
+  assert(out.source_id == 20);
+  assert(out.stream_id == 200);
+  assert(out.seq_no == 99);
+  assert(out.total_size == 1024);
+  assert(out.total_number_of_frames == 3);
+  assert(out.frame_idx == 1);
+  assert(out.real_sample_rate == 48000.0);
+  assert(out.timestamp == 123456789ULL);
+  assert(out.audio_data.len == 8);
+  for (int i = 0; i < 8; i++) {
+    assert(out.audio_data.data[i] == (uint8_t)(0xA0 + i));
+  }
+}
+
+void testBinDataLargeIDs() {
+  Serial.println("testBinDataLargeIDs");
+
+  // Build a binary data message with large IDs (12-byte header)
+  uint8_t msg[128];
+  memset(msg, 0, sizeof(msg));
+  int pos = 0;
+
+  // Header (large IDs)
+  msg[pos++] = 0x80;         // type=source | 0x80
+  msg[pos++] = 0x00 | 0x80;  // cmd=data | large ID flag
+  msg[pos++] = 0;            // small to (ignored)
+  msg[pos++] = 0;            // small from (ignored)
+  write_be_int32(msg + pos, 1000);  // to (sink_id, large)
+  pos += 4;
+  write_be_int32(msg + pos, 2000);  // from (source_id, large)
+  pos += 4;
+
+  // Body
+  write_be_int32(msg + pos, 300);  // stream_id
+  pos += 4;
+  write_be_int32(msg + pos, 77);   // sequence
+  pos += 4;
+  msg[pos++] = 0;      // channel
+  msg[pos++] = 0;      // flags (no optional fields)
+  write_be_uint16(msg + pos, 4);   // data_size
+  pos += 2;
+
+  // Audio data
+  msg[pos++] = 0xDE;
+  msg[pos++] = 0xAD;
+  msg[pos++] = 0xBE;
+  msg[pos++] = 0xEF;
+
+  AOOData out;
+  assert(aoo_parse_bin_data(msg, pos, out));
+  assert(out.sink_id == 1000);
+  assert(out.source_id == 2000);
+  assert(out.stream_id == 300);
+  assert(out.seq_no == 77);
+  assert(out.audio_data.len == 4);
+  assert(out.audio_data.data[0] == 0xDE);
+  assert(out.audio_data.data[1] == 0xAD);
+  assert(out.audio_data.data[2] == 0xBE);
+  assert(out.audio_data.data[3] == 0xEF);
+}
+
+void testBinDataXRun() {
+  Serial.println("testBinDataXRun");
+
+  // XRun message: flags = 0x08, data_size = 0
+  uint8_t msg[64];
+  memset(msg, 0, sizeof(msg));
+  int pos = 0;
+
+  msg[pos++] = 0x80;
+  msg[pos++] = 0x00;
+  msg[pos++] = 5;   // sink_id
+  msg[pos++] = 3;   // source_id
+
+  write_be_int32(msg + pos, 50);  // stream_id
+  pos += 4;
+  write_be_int32(msg + pos, 10);  // sequence
+  pos += 4;
+  msg[pos++] = 0;    // channel
+  msg[pos++] = 0x08; // flags: XRun
+  write_be_uint16(msg + pos, 0);  // data_size = 0
+  pos += 2;
+
+  AOOData out;
+  assert(aoo_parse_bin_data(msg, pos, out));
+  assert(out.sink_id == 5);
+  assert(out.source_id == 3);
+  assert(out.seq_no == 10);
+  assert(out.audio_data.data == nullptr);
+  assert(out.audio_data.len == 0);
+}
+
+void testBinDataTooShort() {
+  Serial.println("testBinDataTooShort");
+
+  // Message too short to contain even a header
+  uint8_t msg[] = {0x80, 0x00};
+  AOOData out;
+  assert(aoo_parse_bin_data(msg, sizeof(msg), out) == false);
+
+  // Header OK but body too short
+  uint8_t msg2[] = {0x80, 0x00, 5, 3, 0, 0, 0, 1};
+  assert(aoo_parse_bin_data(msg2, sizeof(msg2), out) == false);
+}
+
 void setup() {
   Serial.begin(115200);
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);
@@ -332,6 +579,12 @@ void setup() {
   testAOOInvite();
   testAOOUninvite();
   testAOODecline();
+  testBinMsgDetection();
+  testBinDataSimple();
+  testBinDataWithFlags();
+  testBinDataLargeIDs();
+  testBinDataXRun();
+  testBinDataTooShort();
 
   Serial.println("All tests completed");
 }

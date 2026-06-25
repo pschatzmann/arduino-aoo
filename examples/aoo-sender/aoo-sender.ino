@@ -5,7 +5,7 @@
  */
 #include "WiFi.h"
 #include "AudioTools.h"
-#include "AudioTools/AudioCodecs/CodecOpus.h"
+#include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "AOO.h"
 
 const char *ssid = "ssid";
@@ -18,7 +18,15 @@ Throttle throttled_in(sound);
 AOOStreamUDP udp(IPAddress(192, 168, 1, 44), udpPort);
 AOOSender aoo_sender(1, udp, 100);
 StreamCopy copier(aoo_sender, throttled_in);
-OpusAudioEncoder opus;
+OpusMultiStreamAudioEncoder opus;
+
+void setupEncoder() {
+  auto& ocfg = opus.config();
+  ocfg.complexity = 1;  // much lighter, still decent quality
+  ocfg.frame_sizes_ms_x2 = OPUS_FRAMESIZE_40_MS;
+  ocfg.setupSeparateChannelsMapping();
+  aoo_sender.setEncoder("opus", opus);
+}
 
 void setup() {
   Serial.begin(115200);
@@ -31,40 +39,35 @@ void setup() {
   Serial.print("Connected to WiFi. IP address: ");
   Serial.println(WiFi.localIP());
 
-
   // Setup sine wave input
   sineWave.begin(info, N_B4);
   throttled_in.begin(info);
 
-  // --- Simple: start with AudioInfo only (broadcast, PCM) ---
-  aoo_sender.begin(info);
+  // Setup Opus encoder for sender
+  setupEncoder();
 
-  // --- Alternative: start with full configuration ---
-  // auto cfg = aoo_sender.defaultConfig();
+  auto cfg = aoo_sender.defaultConfig();
+  cfg.copyFrom(info);
   // cfg.sample_rate = 22000;
   // cfg.channels = 1;
   // cfg.bits_per_sample = 16;
+
+  // Send each block twice for WiFi loss tolerance
+  // cfg.redundancy = 2;
+  
+  // Fixed audio framing (bytes per block)
+  // cfg.frame_size = 960;
+  
+  // Send to specific sinks at different IPs
+  // cfg.sink_targets = {
+  //   {1, IPAddress(192, 168, 1, 10), 7000},
+  //   {2, IPAddress(192, 168, 1, 11), 7000},
+  // };
+  
+  // Or send to a single sink (no IP needed if same as udp.begin)
+  // cfg.sink_targets = {{1}};
   //
-  // // Use Opus encoder instead of PCM
-  // // aoo_sender.setEncoder("opus", opus);
-  //
-  // // Send each block twice for WiFi loss tolerance
-  // // cfg.redundancy = 2;
-  //
-  // // Fixed audio framing (bytes per block)
-  // // cfg.frame_size = 960;
-  //
-  // // Send to specific sinks at different IPs
-  // // cfg.sink_targets = {
-  // //   {1, IPAddress(192, 168, 1, 10), 7000},
-  // //   {2, IPAddress(192, 168, 1, 11), 7000},
-  // // };
-  //
-  // // Or send to a single sink (no IP needed if same as udp.begin)
-  // // cfg.sink_targets = {{1}};
-  //
-  // throttle.begin(cfg);
-  // aoo_sender.begin(cfg);
+  aoo_sender.begin(cfg);
 
   Serial.println("started...");
 }
