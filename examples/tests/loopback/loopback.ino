@@ -79,7 +79,6 @@ void testLoopback() {
   aoo_sender.setStream(src_stream);
   auto src_cfg = aoo_sender.defaultConfig();
   src_cfg.copyFrom(info);
-  src_cfg.length_prefix = true;
   aoo_sender.begin(src_cfg);
 
   // begin() wrote the start message to src_buf — deliver it to sink
@@ -106,7 +105,6 @@ void testLoopback() {
   aoo_receiver.setOutput((Print &)capture_stream);
   auto sink_cfg = aoo_receiver.defaultConfig();
   sink_cfg.copyFrom(info);
-  sink_cfg.length_prefix = true;
   aoo_receiver.begin(sink_cfg);
 
   // Process all messages

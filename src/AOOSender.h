@@ -74,7 +74,6 @@ class AOOSender : public AudioOutput {
     cfg.max_frame_size = max_frame_size;
     cfg.redundancy = redundancy;
     cfg.codec_delay_samples = codec_delay_samples;
-    cfg.length_prefix = is_write_length_prefix;
     cfg.log_osc = is_log_osc_active;
     cfg.ping_interval_ms = ping_interval_ms;
     return cfg;
@@ -87,7 +86,6 @@ class AOOSender : public AudioOutput {
     max_frame_size = cfg.max_frame_size;
     redundancy = cfg.redundancy > 0 ? cfg.redundancy : 1;
     codec_delay_samples = cfg.codec_delay_samples;
-    is_write_length_prefix = cfg.length_prefix;
     is_log_osc_active = cfg.log_osc;
     ping_interval_ms = cfg.ping_interval_ms;
     aao_out_buffer.setTimeout(cfg.buffer_time_ms);
@@ -202,7 +200,6 @@ class AOOSender : public AudioOutput {
   const char *encoder_format = "pcm";
   EncoderNetworkFormat pcm_encoder;
   AudioEncoder *p_encoder = &pcm_encoder;
-  bool is_write_length_prefix = false;
   int32_t stream_id = 0;
   int32_t seq_no = 0;
   int32_t block_size = 1024;
@@ -336,26 +333,6 @@ class AOOSender : public AudioOutput {
 
     aao_out_buffer.writeArray(current_seq, audioData, len);
     return ok;
-  }
-
-  /// Determines the message size for parsing the ping confirmation message
-  size_t getMessageSize() {
-    TRACED();
-    size_t msg_size = AAO_MAX_SOURCE_BUFFER;
-    if (is_write_length_prefix) {
-      p_output->setTimeout(5);
-      if (p_output->available() < (int)sizeof(uint64_t)) {
-        return 0;
-      }
-      uint64_t size64;
-      if (p_output->readBytes((uint8_t *)&size64, sizeof(size64)) !=
-          sizeof(size64)) {
-        LOGE("Failed to read message size");
-        return 0;
-      }
-      msg_size = (size_t)ntohll(size64);
-    }
-    return msg_size;
   }
 
   bool aoo_receive() {

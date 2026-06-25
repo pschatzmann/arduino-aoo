@@ -83,8 +83,6 @@ struct AOOSenderConfig : public AudioInfo {
   int codec_delay_samples = 0;
   /// Ping interval in ms (how often to send keep-alive pings to sinks)
   int ping_interval_ms = AOO_PING_INTERVAL_MS;
-  /// Prepend a uint64 length prefix before each OSC message (for non-UDP)
-  bool length_prefix = false;
   /// Log raw OSC message headers for debugging
   bool log_osc = false;
 };
@@ -105,16 +103,14 @@ struct AOOReceiverConfig : public AudioInfo {
   int jitter_buffer_depth = 0;
   /// Enable adaptive resampling to compensate for source/sink clock drift
   bool adaptive_resampling = false;
-  /// Wait time in ms before requesting a resend for missing packets
-  int recovery_wait_ms = AOO_RECOVERY_WAIT_MS;
+  /// Wait time in ms before requesting a resend for missing packets; 0 = disabled
+  int recovery_wait_ms = 0;
   /// Maximum resend attempts before abandoning a missing packet
-  int recovery_max_requests = AOO_RECOVERY_MAX_REQUESTS;
-  /// Internal mixer buffer size; 0 = use default
-  int mixer_size = 0;
+  int recovery_max_requests = 0;
+  /// Internal mixer buffer size;
+  int mixer_size = 2 * 1024;
   /// Auto-remove sources that haven't sent data for this many ms; 0 = disabled
   int stream_timeout_ms = 0;
-  /// Read a uint64 length prefix before each incoming OSC message (for non-UDP)
-  bool length_prefix = false;
   /// Log raw OSC message headers for debugging
   bool log_osc = false;
 };

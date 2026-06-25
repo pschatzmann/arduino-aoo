@@ -140,10 +140,6 @@ inline bool aoo_parse_bin_data(const uint8_t* data, size_t len, AOOData& out) {
     size_t remaining = len - (p - data);
     if (remaining < 4) return false;
     out.message_data_size = read_int32(p);
-    // Skip the stream message data
-    size_t remaining2 = len - (p - data);
-    if (remaining2 < (size_t)out.message_data_size) return false;
-    p += out.message_data_size;
   }
 
   if (flags & kAOOBinFlag_SampleRate) {
