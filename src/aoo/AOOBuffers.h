@@ -19,74 +19,48 @@ class AOOSourceBuffer {
 
   AOOSourceBuffer(uint32_t timeout) { setTimeout(timeout); }
 
-  /// adds the data to the buffer
+  /// Stores data indexed by sequence number. O(1) lookup via ring buffer.
   size_t writeArray(int id, const uint8_t *data, size_t len) {
-    if (buffer_size == 0) setBufferSize(len);
     if (timeout_ms == 0) return 0;
-    if (len > buffer_size) {
-      LOGE("Buffer overflow %d > %d", (int)len, (int)buffer_size);
-      return 0;
+    if (ring.empty()) {
+      int capacity = std::max(1, (int)(timeout_ms * estimated_rate_hz / 1000));
+      ring.resize(capacity);
     }
-    SingleBuffer<uint8_t> *p_buffer = newBuffer();
-    if (p_buffer == nullptr) {
-      TRACEE()
-      return 0;
-    }
-    p_buffer->timestamp = millis() + timeout_ms;
-    p_buffer->id = id;
-    return p_buffer->writeArray(data, len);
+    auto &entry = ring[id % ring.size()];
+    if (entry.size() < len) entry.resize(len);
+    entry.reset();
+    entry.id = id;
+    entry.timestamp = millis() + timeout_ms;
+    return entry.writeArray(data, len);
   }
 
-  /// finds the data from the buffer
-  size_t readArray(int id, uint8_t *data, size_t len) {
-    if (len > buffer_size) {
-      LOGE("Buffer underflow %d > %d", (int)len, (int)buffer_size);
-      return 0;
-    }
-    for (auto &buffer : buffers) {
-      if (buffer.id == id) {
-        return buffer.readArray(data, len);
-      }
-    }
-    return 0;
-  }
-
+  /// Finds buffered data by sequence number. O(1).
   SingleBuffer<uint8_t> *getBuffer(int id) {
-    for (auto &buffer : buffers) {
-      if (buffer.id == id) {
-        return &buffer;
-      }
+    if (ring.empty()) return nullptr;
+    auto &entry = ring[id % ring.size()];
+    if (entry.id == id && entry.timestamp >= millis()) {
+      return &entry;
     }
     return nullptr;
   }
 
-  void clear() { buffers.clear(); }
+  void clear() {
+    for (auto &e : ring) {
+      e.reset();
+      e.id = -1;
+    }
+  }
 
   /// Defines the validity time for a buffer entry: If 0, do not buffer!
   void setTimeout(uint32_t ms) { timeout_ms = ms; }
 
-  /// Defines the size of an individual buffer entry. If 0 it will be determined
-  /// automatically based on the first write call
-  void setBufferSize(size_t len) {
-    clear();
-    buffer_size = len;
-  }
+  /// Hint for ring size calculation (blocks per second)
+  void setEstimatedRate(int hz) { estimated_rate_hz = hz; }
 
  protected:
   uint32_t timeout_ms = 1000;
-  size_t buffer_size = 0;
-  std::vector<SingleBuffer<uint8_t>> buffers;
-
-  /// Returns an expired buffer or creates a new one
-  SingleBuffer<uint8_t> *newBuffer() {
-    for (auto &buffer : buffers) {
-      if (buffer.timestamp < millis()) {
-        return &buffer;
-      }
-    }
-    buffers.push_back(SingleBuffer<uint8_t>(buffer_size));
-    return &buffers.back();
-  }
+  int estimated_rate_hz = 100;
+  std::vector<SingleBuffer<uint8_t>> ring;
 };
 
 /**

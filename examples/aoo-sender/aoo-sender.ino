@@ -24,7 +24,7 @@ void setupEncoder() {
   auto& ocfg = opus.config();
   ocfg.complexity = 1;  // much lighter, still decent quality
   ocfg.frame_sizes_ms_x2 = OPUS_FRAMESIZE_40_MS;
-  ocfg.channels_mapping = OPUS_CHANNELS_MAPPING_SEPARATE;
+  ocfg.default_channel_mapping = OPUS_CHANNEL_MAPPING_SEPARATE;
   aoo_sender.setEncoder("opus", opus);
 }
 

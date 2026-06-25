@@ -25,7 +25,7 @@ AOOReceiver aoo_receiver(1, udp, i2s); // or AOOReceiverSingle
 // Each sender instance needs to have it separate decoder instance!
 AudioDecoder *createOpusDecoder() {
   OpusMultiStreamAudioDecoder *decoder = new OpusMultiStreamAudioDecoder();
-  decoder->config().channels_mapping = OPUS_CHANNEL_MAPPING_SEPARATE;
+  decoder->config().default_channel_mapping = OPUS_CHANNEL_MAPPING_SEPARATE;
   return decoder;
 }
 

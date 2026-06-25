@@ -283,7 +283,7 @@ class AOOSender : public AudioOutput {
     if (strcmp(codecStr(), "pcm") == 0) {
       codec_ext_data = htonl(pcmBitDepth(audioInfo().bits_per_sample));
     } else if (strcmp(codecStr(), "opus") == 0) {
-      codec_ext_data = htonl(2049); // OPUS_APPLICATION_AUDIO
+      codec_ext_data = htonl(2049u); // OPUS_APPLICATION_AUDIO
     }
     aoo_start.codec_extension = {(uint8_t *)&codec_ext_data, sizeof(codec_ext_data)};
   }
