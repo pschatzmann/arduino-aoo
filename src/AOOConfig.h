@@ -73,8 +73,8 @@ struct AOOSenderConfig : public AudioInfo {
   int id = 0;
   /// Target sinks with optional network addresses; empty = broadcast to all
   std::vector<AOOSinkTarget> sink_targets;
-  /// How long sent data is kept for resend requests (ms); 0 disables buffering
-  int buffer_time_ms = 1000;
+  /// How many sent blocks to keep in the resend buffer (0 = disabled)
+  int buffer_size = 50;
   /// Maximum encoded frame size in bytes before multi-frame splitting
   int max_frame_size = 1400;
   /// Number of times each block is sent (1 = no redundancy, 2+ for loss tolerance)
@@ -83,6 +83,8 @@ struct AOOSenderConfig : public AudioInfo {
   int codec_delay_samples = 0;
   /// Ping interval in ms (how often to send keep-alive pings to sinks)
   int ping_interval_ms = AOO_PING_INTERVAL_MS;
+  /// Channel onset in samples (communicated to sinks for alignment)
+  int32_t channel_onset = 0;
   /// Log raw OSC message headers for debugging
   bool log_osc = false;
 };

@@ -1,145 +1,143 @@
 #pragma once
+#include <cstdint>
+#include <cstring>
 #include <vector>
+
 #include "AudioTools.h"
 #include "AudioTools/CoreAudio/Buffers.h"
-#include "stdint.h"
 
 namespace arduino_aoo {
-
 /**
- * @brief AOO Write Buffer which caches the written data for some time to be
- * able to resend lost data
- * @ingroup aoo-utils
+ * @brief Ring buffer that allows indexed access to slots by sequence number.
+ * @ingroup aoo
  * @author Phil Schatzmann
+ * @copyright GPLv3
  */
 
-class AOOSourceBuffer {
+template <typename Entry = SingleBuffer<uint8_t>> 
+class IndexedRingBuffer {
  public:
-  AOOSourceBuffer() = default;
+  IndexedRingBuffer() = default;
+  explicit IndexedRingBuffer(size_t slots) { resize(slots); }
 
-  AOOSourceBuffer(uint32_t timeout) { setTimeout(timeout); }
-
-  /// Stores data indexed by sequence number. O(1) lookup via ring buffer.
-  size_t writeArray(int id, const uint8_t *data, size_t len) {
-    if (timeout_ms == 0) return 0;
-    if (ring.empty()) {
-      int capacity = std::max(1, (int)(timeout_ms * estimated_rate_hz / 1000));
-      ring.resize(capacity);
-    }
-    auto &entry = ring[id % ring.size()];
-    if (entry.size() < len) entry.resize(len);
-    entry.reset();
-    entry.id = id;
-    entry.timestamp = millis() + timeout_ms;
-    return entry.writeArray(data, len);
+  void resize(size_t slots) {
+    entries_.resize(slots);
+    reset();
   }
 
-  /// Finds buffered data by sequence number. O(1).
-  SingleBuffer<uint8_t> *getBuffer(int id) {
-    if (ring.empty()) return nullptr;
-    auto &entry = ring[id % ring.size()];
-    if (entry.id == id && entry.timestamp >= millis()) {
-      return &entry;
-    }
-    return nullptr;
+  size_t size() const { return entries_.size(); }
+
+  bool empty() const { return entries_.empty(); }
+
+  Entry* get(int32_t id) {
+    if (entries_.empty()) return nullptr;
+
+    Entry& e = entries_[index(id)];
+    if (e.id != id) return nullptr;
+    return &e;
   }
 
-  void clear() {
-    for (auto &e : ring) {
-      e.reset();
-      e.id = -1;
-    }
+  const Entry* get(int32_t id) const {
+    if (entries_.empty()) return nullptr;
+    const Entry& e = entries_[index(id)];
+    if (e.id != id) return nullptr;
+    return &e;
   }
 
-  /// Defines the validity time for a buffer entry: If 0, do not buffer!
-  void setTimeout(uint32_t ms) { timeout_ms = ms; }
+  Entry* reserve(int32_t id, size_t capacity = 0) {
+    if (entries_.empty()) return nullptr;
 
-  /// Hint for ring size calculation (blocks per second)
-  void setEstimatedRate(int hz) { estimated_rate_hz = hz; }
+    Entry& e = entries_[index(id)];
+    if (capacity > e.size()) e.resize(capacity);
 
- protected:
-  uint32_t timeout_ms = 1000;
-  int estimated_rate_hz = 100;
-  std::vector<SingleBuffer<uint8_t>> ring;
-};
+    e.reset();
+    e.id = id;
+    e.active = false;
 
-/**
- * @brief AOO Buffer is a NBuffer which uses a sequence numer to identify each
- * buffer entry and allows to add an empty buffer entry for gaps that can be
- * refilled later. The BaseBuffer entries are resized dynamically.
- * @ingroup aoo-utils
- * @author Phil Schatzmann
- */
-
-class AOOSinkBuffer : public BaseBuffer<uint8_t> {
- public:
-  AOOSinkBuffer() = default;
-
-  /// Must be sized at runtime to support psram
-  void resize(int count) {
-    if (count == 0) return;
-    nbuffer.resize(0, count);
+    return &e;
   }
 
-  /// Defines the actual buffer id that will be used in the next entry
-  void setActualId(int id) { actual_id = id; }
+  //----------------------------------------------------------
+  // write by id
+  //----------------------------------------------------------
 
-  /// reads multiple values
-  int readArray(uint8_t data[], int len) override {
-    return nbuffer.readArray(data, len);
+  size_t write(int32_t id, const uint8_t* data, size_t len) {
+    Entry* e = reserve(id, len);
+
+    if (!e) return 0;
+
+    e->active = true;
+
+    return e->writeArray(data, len);
   }
 
-  /// Standard write function used by the mixer
-  int writeArray(const uint8_t data[], int len) override {
-    // provide individual SingleBuffer
-    SingleBuffer<uint8_t> *rec = nbuffer.writeEnd();
-    if (rec == nullptr) {
-      LOGE("insufficient Buffers");
-      return 0;
-    }
-    // resize if needed
-    if (len > rec->size()) {
-      rec->resize(len);
-    }
-    rec->active = len > 0;
-    rec->id = actual_id;
-    rec->timestamp = millis();
-    return rec->writeArray(data, len);
+  //----------------------------------------------------------
+  // FIFO interface
+  //----------------------------------------------------------
+
+  Entry* writeEnd() {
+    if (entries_.empty()) return nullptr;
+
+    Entry& e = entries_[write_pos_];
+
+    write_pos_ = (write_pos_ + 1) % entries_.size();
+
+    if (count_ < entries_.size())
+      ++count_;
+    else
+      read_pos_ = (read_pos_ + 1) % entries_.size();
+
+    e.clear();
+
+    return &e;
   }
 
-  /// Fill the buffer for a specific gap id
-  int updateArray(int id, const uint8_t data[], int len) {
-    SingleBuffer<uint8_t> *rec =
-        (SingleBuffer<uint8_t> *)nbuffer.getBuffer(id);
-    if (rec == nullptr) {
-      return 0;
-    }
-    if (len > rec->size()) {
-      rec->resize(len);
-    }
-    rec->active = true;
-    rec->timestamp = millis();
-    return rec->writeArray(data, len);
+  Entry* readFront() {
+    if (count_ == 0) return nullptr;
+
+    Entry& e = entries_[read_pos_];
+
+    read_pos_ = (read_pos_ + 1) % entries_.size();
+    --count_;
+
+    return &e;
   }
 
-  int available() override { return nbuffer.available(); }
-  int availableForWrite() override { return nbuffer.availableForWrite(); }
-  bool isFull() override { return nbuffer.isFull(); }
-  bool isEmpty() { return nbuffer.isEmpty(); }
-  size_t size() { return nbuffer.size(); }
-  bool read(uint8_t &result) override { return nbuffer.read(result); }
-  bool peek(uint8_t &result) override { return nbuffer.peek(result); }
-  bool write(uint8_t out) { return nbuffer.write(out); }
+  bool isEmpty() const { return count_ == 0; }
+
+  bool isFull() const { return !entries_.empty() && count_ == entries_.size(); }
+
+  size_t available() const { return count_; }
+
+  size_t availableForWrite() const { return entries_.size() - count_; }
+
   void reset() {
-    nbuffer.reset();
-    actual_id = 0;
+    for (auto& e : entries_) e.clear();
+
+    read_pos_ = 0;
+    write_pos_ = 0;
+    count_ = 0;
   }
-  uint8_t *address() { return nbuffer.address(); }
+
+  int activeCount() const {
+    int n = 0;
+
+    for (auto& e : entries_) {
+      if (e.active) n++;
+    }
+
+    return n;
+  }
 
  protected:
-  uint8_t *buffer = nullptr;
-  NBufferExt<uint8_t> nbuffer{0, 0};
-  int actual_id = 0;
+  size_t index(int32_t id) const {
+    return static_cast<size_t>(id) % entries_.size();
+  }
+
+  std::vector<Entry> entries_;
+  size_t read_pos_ = 0;
+  size_t write_pos_ = 0;
+  size_t count_ = 0;
 };
 
 /**
@@ -158,108 +156,95 @@ class AOOSinkBuffer : public BaseBuffer<uint8_t> {
  */
 class AOOJitterBuffer {
  public:
+  using Entry = SingleBuffer<uint8_t>;
+  using Buffer = IndexedRingBuffer<Entry>;
+
   AOOJitterBuffer() = default;
 
-  /// Configure the buffer. depth = number of blocks to hold before releasing.
   bool begin(int depth) {
     if (depth <= 0) return false;
     depth_ = depth;
-    slots_.resize(depth);
-    for (auto& s : slots_) {
-      s.data.clear();
-      s.seq = -1;
-    }
+    buffer_.resize(depth_);
     read_seq_ = -1;
     write_count_ = 0;
-    is_active_ = true;
+    active_ = true;
     return true;
-  }
-
-  /// Insert a block. Returns false if the block is too late or duplicate.
-  bool write(int32_t seq, const uint8_t* data, size_t len) {
-    if (!is_active_) return false;
-
-    if (read_seq_ >= 0 && seq <= read_seq_) {
-      LOGW("JitterBuffer: late packet seq=%d (read_seq=%d)", seq, read_seq_);
-      return false;
-    }
-
-    auto& slot = slots_[seq % depth_];
-    if (!slot.data.empty() && slot.seq == seq) return false;
-
-    slot.data.resize(len);
-    memcpy(slot.data.data(), data, len);
-    slot.seq = seq;
-    write_count_++;
-
-    if (read_seq_ < 0 && write_count_ >= depth_) {
-      read_seq_ = seq - depth_ + 1;
-    }
-    return true;
-  }
-
-  /// Read the next block in sequence order. Moves the data into out
-  /// (zero-copy swap). Returns the number of bytes, or 0 for a gap.
-  size_t read(std::vector<uint8_t> &out) {
-    out.clear();
-    if (!is_active_ || read_seq_ < 0) return 0;
-
-    int32_t seq = read_seq_ + 1;
-    auto& slot = slots_[seq % depth_];
-
-    size_t result = 0;
-    if (!slot.data.empty() && slot.seq == seq) {
-      result = slot.data.size();
-      std::swap(out, slot.data);
-    }
-    slot.data.clear();
-    slot.seq = -1;
-    read_seq_ = seq;
-    return result;
-  }
-
-  /// True once enough blocks have been buffered to start reading
-  bool isReady() const { return read_seq_ >= 0; }
-
-  /// Current read sequence number
-  int32_t readSeq() const { return read_seq_; }
-
-  /// Number of filled slots
-  int filledSlots() {
-    int n = 0;
-    for (auto& s : slots_)
-      if (!s.data.empty()) n++;
-    return n;
-  }
-
-  int depth() { return depth_; }
-
-  void reset() {
-    for (auto& s : slots_) {
-      s.data.clear();
-      s.seq = -1;
-    }
-    read_seq_ = -1;
-    write_count_ = 0;
   }
 
   void end() {
     reset();
-    slots_.clear();
-    is_active_ = false;
+    buffer_.resize(0);
+    active_ = false;
   }
 
- protected:
-  struct Slot {
-    std::vector<uint8_t> data;
-    int32_t seq = -1;
-  };
+  bool write(int32_t seq, const uint8_t* data, size_t len) {
+    if (!active_) return false;
 
-  std::vector<Slot> slots_;
+    // drop late packets
+    if (read_seq_ >= 0 && seq <= read_seq_) {
+      return false;
+    }
+
+    Entry* e = buffer_.reserve(seq, len);
+    if (!e) return false;
+
+    // update data
+    std::memcpy(e->address(), data, len);
+    e->setAvailable(len);
+    e->active = true;
+    e->timestamp = millis();
+
+    write_count_++;
+
+    // initialize read pointer once buffer is "primed"
+    if (read_seq_ < 0 && write_count_ >= depth_) {
+      read_seq_ = seq - depth_ + 1;
+    }
+
+    return true;
+  }
+
+  size_t read(std::vector<uint8_t>& out) {
+    out.clear();
+
+    if (!active_ || read_seq_ < 0) return 0;
+    int32_t next_seq = read_seq_ + 1;
+    Entry* e = buffer_.get(next_seq);
+    size_t len = 0;
+
+    if (e && e->active) {
+      len = e->size();
+      out.resize(len);
+      std::memcpy(out.data(), e->address(), len);
+      e->active = false;
+      e->clear();
+    }
+
+    read_seq_ = next_seq;
+    return len;
+  }
+
+  bool isReady() const { return read_seq_ >= 0; }
+
+  int32_t readSeq() const { return read_seq_; }
+
+  int depth() const { return depth_; }
+
+  void reset() {
+    buffer_.reset();
+    read_seq_ = -1;
+    write_count_ = 0;
+  }
+
+  int filledSlots() const { return buffer_.activeCount(); }
+
+ private:
+  Buffer buffer_;
+
   int depth_ = 0;
   int32_t read_seq_ = -1;
   int write_count_ = 0;
-  bool is_active_ = false;
+  bool active_ = false;
 };
 
 }  // namespace arduino_aoo

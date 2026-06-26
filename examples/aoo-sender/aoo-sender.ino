@@ -8,6 +8,10 @@
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "AOO.h"
 
+// When using Opus: increase stack size
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
+
 const char *ssid = "ssid";
 const char *password = "password";
 const int udpPort = 9999;
@@ -16,7 +20,7 @@ SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
 Throttle throttled_in(sound);
 AOOStreamUDP udp(IPAddress(192, 168, 1, 44), udpPort);
-AOOSender aoo_sender(1, udp, 100);
+AOOSender aoo_sender(1, udp);
 StreamCopy copier(aoo_sender, throttled_in);
 OpusMultiStreamAudioEncoder opus;
 

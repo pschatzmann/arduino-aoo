@@ -40,7 +40,7 @@ AOOStreamQueue sink_stream{sink_queue};
 SingleBuffer<uint8_t> capture_buf{1024 * 8};
 QueueStream<uint8_t> capture_stream{capture_buf};
 
-AOOSender aoo_sender(1, src_stream, 0);
+AOOSender aoo_sender(1, src_stream);
 AOOReceiver aoo_receiver;
 
 const int TEST_SAMPLES = 256;
