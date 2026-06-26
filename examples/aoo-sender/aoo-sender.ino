@@ -47,7 +47,7 @@ void setup() {
   sineWave.begin(info, N_B4);
   throttled_in.begin(info);
 
-  // Setup Opus encoder for sender
+  // Setup Opus encoder for sender: comment out for PCM
   setupEncoder();
 
   auto cfg = aoo_sender.defaultConfig();
