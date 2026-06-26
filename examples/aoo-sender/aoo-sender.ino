@@ -9,8 +9,9 @@
 #include "AOO.h"
 
 // When using Opus: increase stack size
+#ifdef ESP32
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
-
+#endif
 
 const char *ssid = "ssid";
 const char *password = "password";
@@ -58,9 +59,6 @@ void setup() {
 
   // Send each block twice for WiFi loss tolerance
   // cfg.redundancy = 2;
-  
-  // Fixed audio framing (bytes per block)
-  // cfg.frame_size = 960;
   
   // Send to specific sinks at different IPs
   // cfg.sink_targets = {
