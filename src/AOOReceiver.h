@@ -123,7 +123,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     // Post-processing: resend requests, drift adjustment, source management
     postProcessing();
 
-    // Pull decoded, mixed audio from InputMixer
+    if (sources.size() == 1 && sources[0]->isPrimed()) {
+      return sources[0]->readBytes(data, len);
+    }
     return mixer.readBytes(data, len);
   }
 
@@ -131,6 +133,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   int available() override {
     if (!is_active) return 0;
     processMessages();
+    if (sources.size() == 1 && sources[0]->isPrimed()) {
+      return sources[0]->available();
+    }
     return mixer.available();
   }
 
