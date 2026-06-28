@@ -55,6 +55,7 @@ struct AOOStart : public AOOMessage {
   int32_t codec_delay_samples = 0;
   int32_t sample_offset = 0;
 
+  /// Logs the start message fields
   void logData() override {
     LOGI("AOOStart: source_id=%d, sink_id=%d, version=%s", source_id, sink_id,
          version);
@@ -70,6 +71,7 @@ struct AOOStart : public AOOMessage {
     LOGI("- sample_offset=%d", sample_offset);
   }
 
+  /// Sends the start message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/sink/%d/start", sink_id);
@@ -169,11 +171,13 @@ struct AOORequestStart : public AOOMessage {
   int32_t source_id = 0;
   int32_t sink_id = 0;
 
+  /// Logs the request start message fields
   void logData() override {
     LOGI("AOORequestStart: source_id=%d, sink_id=%d, version=%s", source_id,
          sink_id, version);
   }
 
+  /// Sends the request start message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/src/%d/start", source_id);
@@ -248,11 +252,13 @@ struct AOOStopSink : public AOOMessage {
   int32_t last_seq = 0;
   int32_t sample_offset = 0;
 
+  /// Logs the stop sink message fields
   void logData() override {
     LOGI("AOOStopSink: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
   }
 
+  /// Sends the stop message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/sink/%d/stop", sink_id);
@@ -280,6 +286,7 @@ struct AOOStopSink : public AOOMessage {
     return true;
   }
 
+  /// Parses the stop message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -327,10 +334,13 @@ struct AOOStopSource : public AOOMessage {
   int32_t sink_id = 0;
   int32_t stream_id = 0;
 
+  /// Logs the stop source message fields
   void logData() override {
     LOGI("AOOStopSource: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
   }
+
+  /// Sends the stop message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
 
@@ -357,6 +367,7 @@ struct AOOStopSource : public AOOMessage {
     return true;
   }
 
+  /// Parses the stop message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -413,6 +424,7 @@ struct AOOData : public AOOMessage {
   int32_t frame_idx = 0;
   OSCBinaryData audio_data;
 
+  /// Logs the data message fields
   void logData() override {
     LOGI("AOOData: source_id=%d, sink_id=%d, stream_id=%d", source_id, sink_id,
          stream_id);
@@ -425,6 +437,7 @@ struct AOOData : public AOOMessage {
          frame_idx);
   }
 
+  /// Sends the data message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     LOGD("AOOData: %d", (int)audio_data.len);
@@ -463,6 +476,7 @@ struct AOOData : public AOOMessage {
     return true;
   }
 
+  /// Parses the data message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -523,6 +537,7 @@ struct AOOResendData : public AOOMessage {
 
   std::vector<ResendItem> resend_items;
 
+  /// Logs the resend request fields
   void logData() override {
     LOGI("AOOResendData: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
@@ -614,11 +629,13 @@ struct AOOPingSink : public AOOMessage {
   int32_t sink_id = 0;
   uint64_t send_time = 0;
 
+  /// Logs the ping message fields
   void logData() override {
     LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu", source_id, sink_id,
          send_time);
   }
 
+  /// Sends the ping message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/sink/%d/ping", sink_id);
@@ -687,11 +704,13 @@ struct AOOPingSource : public AOOMessage {
   int32_t sink_id = 0;
   uint64_t send_time = 0;
 
+  /// Logs the ping message fields
   void logData() override {
     LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu", source_id, sink_id,
          send_time);
   }
 
+  /// Sends the ping message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/src/%d/ping", source_id);
@@ -762,11 +781,13 @@ struct AOOPongSink : public AOOMessage {
   uint64_t t2 = 0;  // receive time
   uint64_t t3 = 0;  // send time
 
+  /// Logs the pong message fields
   void logData() override {
     LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu, t2=%lu, t3=%lu",
          source_id, sink_id, t1, t2, t3);
   }
 
+  /// Sends the pong message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/sink/%d/pong", sink_id);
@@ -794,6 +815,7 @@ struct AOOPongSink : public AOOMessage {
     return true;
   }
 
+  /// Parses the pong message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -843,11 +865,13 @@ struct AOOPongSource : public AOOMessage {
   uint64_t t2 = 0;
   uint64_t t3 = 0;
 
+  /// Logs the pong message fields
   void logData() override {
     LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu, t2=%lu, t3=%lu",
          source_id, sink_id, t1, t2, t3);
   }
 
+  /// Sends the pong message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     memset(address, 0, sizeof(address));
@@ -876,6 +900,7 @@ struct AOOPongSource : public AOOMessage {
     return true;
   }
 
+  /// Parses the pong message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -923,11 +948,13 @@ struct AOOInvite : public AOOMessage {
   int32_t sink_id = 0;
   int32_t stream_id = 0;
 
+  /// Logs the invite message fields
   void logData() override {
     LOGI("AOOInvite: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
   }
 
+  /// Sends the invite message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/src/%d/invite", source_id);
@@ -949,6 +976,7 @@ struct AOOInvite : public AOOMessage {
     return written == data.size();
   }
 
+  /// Parses the invite message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -984,11 +1012,13 @@ struct AOOUninvite : public AOOMessage {
   int32_t sink_id = 0;
   int32_t stream_id = 0;
 
+  /// Logs the uninvite message fields
   void logData() override {
     LOGI("AOOUninvite: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
   }
 
+  /// Sends the uninvite message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/src/%d/uninvite", source_id);
@@ -1010,6 +1040,7 @@ struct AOOUninvite : public AOOMessage {
     return written == data.size();
   }
 
+  /// Parses the uninvite message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;
@@ -1044,11 +1075,13 @@ struct AOODecline : public AOOMessage {
   int32_t sink_id = 0;
   int32_t stream_id = 0;
 
+  /// Logs the decline message fields
   void logData() override {
     LOGI("AOODecline: source_id=%d, sink_id=%d, stream_id=%d", source_id,
          sink_id, stream_id);
   }
 
+  /// Sends the decline message to the stream
   bool send(Print &stream) override {
     char address[AOO_MAX_ADDRESS_LEN];
     snprintf(address, sizeof(address), "/aoo/sink/%d/decline", sink_id);
@@ -1070,6 +1103,7 @@ struct AOODecline : public AOOMessage {
     return written == data.size();
   }
 
+  /// Parses the decline message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();
     OSCData data;

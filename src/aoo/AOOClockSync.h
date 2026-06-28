@@ -22,6 +22,7 @@ namespace arduino_aoo {
  */
 class AOOClockSync {
  public:
+  /// Default constructor
   AOOClockSync() = default;
 
   /// Process a completed ping/pong round-trip
@@ -66,6 +67,7 @@ class AOOClockSync {
   /// Set EMA smoothing factor (0..1, lower = smoother)
   void setAlpha(float a) { alpha = a; }
 
+  /// Resets all state to initial values
   void reset() {
     offset_us = 0;
     rtt_us = 0;

@@ -43,6 +43,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     msg_handler.setId(id);
   }
 
+  /// Destructor; stops processing and releases resources
   ~AOOReceiver() { end(); }
 
   /// Defines the communication stream for receiving/sending AOO messages
@@ -69,6 +70,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     return begin();
   }
 
+  /// Starts processing with current settings
   bool begin() {
     if (aoo_cfg.bits_per_sample != 16 && aoo_cfg.bits_per_sample != 0) {
       LOGE("Only 16 bits_per_sample supported, got %d", aoo_cfg.bits_per_sample);
@@ -173,7 +175,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     uint32_t resend_requests = 0;
     uint32_t segments_stored = 0;
   };
+  /// Returns the receiver data-path statistics
   const Stats &stats() const { return stats_; }
+  /// Resets the receiver data-path statistics
   void resetStats() { stats_ = {}; }
 
   /// Message-level statistics (from AOOMessageHandler)
@@ -214,6 +218,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   /// Access clock synchronization state
   AOOClockSync &clockSync() { return msg_handler.clockSync(); }
 
+  /// Returns the current audio format configuration
   AudioInfo audioInfo() override { return aoo_cfg; }
 
  protected:

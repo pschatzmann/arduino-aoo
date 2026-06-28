@@ -7,6 +7,7 @@
 #include "AudioTools/CoreAudio/Buffers.h"
 
 namespace arduino_aoo {
+  
 /**
  * @brief Ring buffer that allows indexed access to slots by sequence number.
  * @ingroup aoo
@@ -17,23 +18,30 @@ namespace arduino_aoo {
 template <typename Entry = SingleBuffer<uint8_t>>
 class IndexedRingBuffer {
  public:
+  /// Default constructor
   IndexedRingBuffer() = default;
+  /// @param slots number of buffer slots
   explicit IndexedRingBuffer(size_t slots) { resize(slots); }
 
+  /// Resizes the buffer to the given number of slots
   void resize(size_t slots) {
     entries_.resize(slots);
     reset();
   }
 
+  /// Returns the number of slots
   size_t size() const { return entries_.size(); }
 
+  /// Returns true if the buffer has no slots
   bool empty() const { return entries_.empty(); }
 
+  /// Returns the entry for the given sequence id, or nullptr
   Entry* get(int32_t id) {
     return const_cast<Entry*>(
         static_cast<const IndexedRingBuffer*>(this)->get(id));        
   }
 
+  /// Returns the entry for the given sequence id, or nullptr (const)
   const Entry* get(int32_t id) const {
     if (entries_.empty()) return nullptr;
     const Entry& e = entries_[index(id)];
@@ -41,6 +49,7 @@ class IndexedRingBuffer {
     return &e;
   }
 
+  /// Reserves a slot for the given sequence id with optional capacity
   Entry* reserve(int32_t id, size_t capacity = 0) {
     if (entries_.empty()) return nullptr;
 
@@ -55,6 +64,7 @@ class IndexedRingBuffer {
   }
 
 
+  /// Writes data into the slot for the given sequence id
   size_t write(int32_t id, const uint8_t* data, size_t len) {
     Entry* e = reserve(id, len);
 
@@ -65,6 +75,7 @@ class IndexedRingBuffer {
     return e->writeArray(data, len);
   }
 
+  /// Advances the write position and returns the next slot
   Entry* writeEnd() {
     if (entries_.empty()) return nullptr;
 
@@ -82,6 +93,7 @@ class IndexedRingBuffer {
     return &e;
   }
 
+  /// Returns the front entry and advances the read position
   Entry* readFront() {
     if (count_ == 0) return nullptr;
 
@@ -93,14 +105,19 @@ class IndexedRingBuffer {
     return &e;
   }
 
+  /// Returns true if no entries are queued
   bool isEmpty() const { return count_ == 0; }
 
+  /// Returns true if all slots are in use
   bool isFull() const { return !entries_.empty() && count_ == entries_.size(); }
 
+  /// Returns the number of entries queued
   size_t available() const { return count_; }
 
+  /// Returns the number of free slots
   size_t availableForWrite() const { return entries_.size() - count_; }
 
+  /// Clears all entries and resets positions
   void reset() {
     for (auto& e : entries_) e.clear();
 
@@ -109,6 +126,7 @@ class IndexedRingBuffer {
     count_ = 0;
   }
 
+  /// Returns the number of entries with active data
   int activeCount() const {
     int n = 0;
 

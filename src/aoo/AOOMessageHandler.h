@@ -20,15 +20,25 @@ namespace arduino_aoo {
  */
 class AOOMessageListener {
  public:
+  /// Virtual destructor
   virtual ~AOOMessageListener() = default;
+  /// Called when decoded AOO data is received
   virtual bool onData(AOOData& data) { return false; }
+  /// Called when raw binary data is received
   virtual bool onBinaryData(const uint8_t* data, size_t len) { return false; }
+  /// Called when a stream start message is received
   virtual bool onStart(OSCData& osc) { return false; }
+  /// Called when a stream stop message is received
   virtual bool onStop(OSCData& osc) { return false; }
+  /// Called when an invite message is received
   virtual bool onInvite(OSCData& osc) { return false; }
+  /// Called when an uninvite message is received
   virtual bool onUninvite(OSCData& osc) { return false; }
+  /// Called when a decline message is received
   virtual bool onDecline(OSCData& osc) { return false; }
+  /// Called when a resend request is received
   virtual bool onResendRequest(OSCData& osc) { return false; }
+  /// Called when a start request is received
   virtual bool onRequestStart(OSCData& osc) { return false; }
 };
 
@@ -48,11 +58,17 @@ class AOOMessageListener {
  */
 class AOOMessageHandler {
  public:
+  /// Sets the transport stream for reading/writing messages
   void setStream(AOOStream& io) { p_io = &io; }
+  /// Sets the listener for dispatching parsed messages
   void setListener(AOOMessageListener& listener) { p_listener = &listener; }
+  /// Sets the AOO endpoint identifier
   void setId(int id_value) { aoo_id = id_value; }
+  /// Returns the current AOO endpoint identifier
   int getId() const { return aoo_id; }
+  /// Sets the OSC address prefix for message routing
   void setAddressPrefix(const char* prefix) { address_prefix = prefix; }
+  /// Enables or disables OSC message header logging
   void setLogOsc(bool flag) { log_osc = flag; }
 
   /// Access the clock synchronization state (updated from pong messages)
@@ -102,8 +118,11 @@ class AOOMessageHandler {
     uint32_t bin_wrong_id = 0;
   };
 
+  /// Returns the message-level statistics
   const Stats& stats() const { return stats_; }
+  /// Resets the message-level statistics
   void resetStats() { stats_ = {}; }
+  /// Returns the underlying transport stream
   AOOStream* stream() { return p_io; }
 
  protected:

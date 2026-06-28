@@ -28,8 +28,10 @@ class AOOSourceLine : public AudioStream {
   friend class AOOReceiver;
 
  public:
+  /// Default constructor
   AOOSourceLine() = default;
 
+  /// Destructor; releases the decoder
   ~AOOSourceLine() {
     if (p_decoder != nullptr) {
       p_decoder->end();
@@ -40,14 +42,18 @@ class AOOSourceLine : public AudioStream {
 
   // --- AudioStream interface (delegates to pipeline) ---
 
+  /// Pulls decoded audio data from the pipeline
   size_t readBytes(uint8_t *data, size_t len) override {
     return pipeline.readBytes(data, len);
   }
 
+  /// Returns the number of bytes available for reading
   int available() override { return pipeline.available(); }
 
+  /// Not used in pull mode
   size_t write(const uint8_t *data, size_t len) override { return 0; }
 
+  /// Returns the AOO source identifier
   int32_t sourceId() const { return source_id; }
 
   // --- Statistics ---
@@ -106,6 +112,7 @@ class AOOSourceLine : public AudioStream {
     return true;
   }
 
+  /// Stops the pipeline and releases the decoder
   void end() {
     pipeline.end();
     if (p_decoder != nullptr) {

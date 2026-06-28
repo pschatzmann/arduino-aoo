@@ -21,6 +21,7 @@ namespace arduino_aoo {
  */
 class AOOPacketRecovery {
  public:
+  /// Default constructor
   AOOPacketRecovery() = default;
 
   /// Configure recovery. wait_ms: time before requesting a resend.
@@ -89,13 +90,16 @@ class AOOPacketRecovery {
   /// Number of sequences currently pending recovery
   int pendingCount() { return pending_.size(); }
 
+  /// Returns the last received sequence number
   int32_t lastSeq() { return last_seq_; }
 
+  /// Resets all pending recovery state
   void reset() {
     pending_.clear();
     last_seq_ = -1;
   }
 
+  /// Stops recovery and clears all state
   void end() { reset(); }
 
  protected:

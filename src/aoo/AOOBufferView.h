@@ -27,13 +27,16 @@ struct BufferStats {
  */
 class BufferStatsTracker {
  public:
+  /// Resets all statistics
   void reset() {
     stats_ = {};
     first_seq_ = -1;
   }
 
+  /// Sets the mutex for thread-safe access
   void setMutex(MutexBase* mutex) { p_mutex = mutex; }
 
+  /// Records that a segment with the given sequence number was received
   void received(int32_t seq) {
     stats_.total_received++;
     if (first_seq_ < 0) first_seq_ = seq;
@@ -41,6 +44,7 @@ class BufferStatsTracker {
     if (seq > stats_.max_seq) stats_.max_seq = seq;
   }
 
+  /// Recomputes statistics from the current buffer state
   void updateStats(const IndexedRingBuffer<SingleBuffer<uint8_t>>& buffer,
                    int32_t read_seq) {
     LockGuard lock(p_mutex);
@@ -64,9 +68,13 @@ class BufferStatsTracker {
     }
   }
 
+  /// Returns the current buffer statistics
   const BufferStats& stats() const { return stats_; }
+  /// Returns the quality percentage (received / expected)
   float qualityPercent() const { return stats_.quality_percent; }
+  /// Returns the number of active segments in the buffer
   int32_t fillLevel() const { return stats_.fill_level; }
+  /// Returns the number of gapless segments from the read position
   int32_t continuousAvailable() const { return stats_.continuous_available; }
 
  protected:
@@ -88,8 +96,10 @@ class BufferStatsTracker {
  */
 class IndexedRingBufferStreamView : public AudioStream {
  public:
+  /// Default constructor
   IndexedRingBufferStreamView() = default;
 
+  /// Sets the backing ring buffer
   void setBuffer(IndexedRingBuffer<SingleBuffer<uint8_t>>* buffer) {
     p_buffer = buffer;
   }
@@ -97,6 +107,7 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Set an optional mutex for thread-safe access (used by AOOReceiverTask)
   void setMutex(MutexBase* mutex) { p_mutex = mutex; }
 
+  /// Resets the read position to the given sequence number
   void setStartSeq(int32_t seq) {
     read_seq = seq;
     read_offset = 0;
@@ -104,6 +115,7 @@ class IndexedRingBufferStreamView : public AudioStream {
     is_primed = false;
   }
 
+  /// Returns the current read sequence number
   int32_t currentSeq() const { return read_seq; }
 
   /// Call when a new segment is stored in the buffer (locks if mutex set)
@@ -120,8 +132,10 @@ class IndexedRingBufferStreamView : public AudioStream {
     }
   }
 
+  /// True once the buffer has enough data to start reading
   bool isPrimed() const { return is_primed; }
 
+  /// Returns the number of bytes available for reading
   int available() override {
     if (p_buffer == nullptr || read_seq < 0 || !is_primed) return 0;
     LockGuard lock(p_mutex);
@@ -134,6 +148,7 @@ class IndexedRingBufferStreamView : public AudioStream {
     return last_segment_size > 0 ? last_segment_size : DEFAULT_BUFFER_SIZE;
   }
 
+  /// Reads encoded segments sequentially, filling gaps with silence
   size_t readBytes(uint8_t* data, size_t len) override {
     if (p_buffer == nullptr || data == nullptr || len == 0) return 0;
     if (!is_primed) return 0;
@@ -184,6 +199,7 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Number of gaps filled with silence
   uint32_t gapsFilled() const { return gaps_filled; }
 
+  /// Not used; data is stored via the ring buffer directly
   size_t write(const uint8_t* data, size_t len) override { return 0; }
 
  protected:

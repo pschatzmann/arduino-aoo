@@ -21,10 +21,14 @@ namespace arduino_aoo {
  */
 class AOOReceiverTask : public AOOReceiver {
  public:
+  /// Default constructor
   AOOReceiverTask() : AOOReceiver() {}
 
+  /// @param id unique sink identifier used in AOO addressing
+  /// @param io transport stream for receiving/sending OSC messages
   AOOReceiverTask(int id, AOOStream &io) : AOOReceiver(id, io) {}
 
+  /// Destructor; stops the task and releases resources
   ~AOOReceiverTask() { end(); }
 
   /// Configure the receive task parameters
@@ -34,11 +38,13 @@ class AOOReceiverTask : public AOOReceiver {
     task_core = core;
   }
 
+  /// Starts the processing with full configuration and launches the receive task
   bool begin(AOOReceiverConfig cfg) {
     aoo_cfg = cfg;
     return begin();
   }
 
+  /// Starts processing and launches the receive task
   bool begin() {
     if (!AOOReceiver::begin()) return false;
     // Set mutex on all existing sources
@@ -48,6 +54,7 @@ class AOOReceiverTask : public AOOReceiver {
     return true;
   }
 
+  /// Stops the receive task and releases all resources
   void end() {
     task.end();
     task.remove();

@@ -45,6 +45,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     msg_handler.setAddressPrefix("/aoo/src/");
     msg_handler.setId(id);
   }
+  /// Destructor; stops processing
   ~AOOSender() { end(); };
 
   /// Defines the output stream to which we send the AOO data
@@ -179,6 +180,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   /// Access clock synchronization state (updated from pong messages)
   AOOClockSync& clockSync() { return msg_handler.clockSync(); }
 
+  /// Returns the total number of audio bytes sent so far
   size_t getTotalBytesSent() { return total_bytes_sent; }
 
  protected:
