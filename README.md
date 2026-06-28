@@ -18,6 +18,7 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 - **Invite/uninvite** — demand-driven streaming: receivers request senders to start/stop
 - **Redundancy** — send each block multiple times for WiFi loss tolerance
 - **Clock synchronization** — NTP-style offset estimation via ping/pong
+- **PSRAM support** - Buffers are automatically allocated in PSRAM when PSRAM is activated
 
 ## Core Classes
 
