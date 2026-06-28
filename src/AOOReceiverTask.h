@@ -58,7 +58,7 @@ class AOOReceiverTask : public AOOReceiver {
   size_t readBytes(uint8_t *data, size_t len) override {
     if (!is_active || sources.empty()) return 0;
     postProcessing();
-    if (sources.size() == 1 && sources[0]->isPrimed()) {
+    if (sources.size() == 1) {
       return sources[0]->readBytes(data, len);
     }
     return mixer.readBytes(data, len);
@@ -67,7 +67,7 @@ class AOOReceiverTask : public AOOReceiver {
   /// available does NOT process messages — the task handles that
   int available() override {
     if (!is_active) return 0;
-    if (sources.size() == 1 && sources[0]->isPrimed()) {
+    if (sources.size() == 1) {
       return sources[0]->available();
     }
     return mixer.available();
