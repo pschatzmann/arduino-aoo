@@ -1,4 +1,5 @@
 #pragma once
+#include <memory>
 #include <vector>
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
 #include "AudioTools/CoreAudio/AudioStreamsConverter.h"
@@ -32,13 +33,7 @@ class AOOSourceLine : public AudioStream {
   AOOSourceLine() = default;
 
   /// Destructor; releases the decoder
-  ~AOOSourceLine() {
-    if (p_decoder != nullptr) {
-      p_decoder->end();
-      delete p_decoder;
-      p_decoder = nullptr;
-    }
-  }
+  ~AOOSourceLine() { end(); }
 
   // --- AudioStream interface (delegates to pipeline) ---
 
@@ -94,14 +89,16 @@ class AOOSourceLine : public AudioStream {
   }
 
   /// Set up the pull-based decoding pipeline
-  bool begin(AudioInfo output_info, AudioDecoder *decoder, int buffer_depth) {
-    p_decoder = decoder;
+  bool begin(AudioInfo output_info, std::unique_ptr<AudioDecoder> decoder,
+             int buffer_depth) {
+    if (p_decoder) p_decoder->end();
+    p_decoder = std::move(decoder);
     encoded_buffer.resize(buffer_depth);
     buffer_view.setBuffer(&encoded_buffer);
     buffer_view.setStartSeq(-1);
 
-    encoded_stream.setDecoder(decoder);
-    decoder->setAudioInfo(source_audio_info);
+    encoded_stream.setDecoder(p_decoder.get());
+    p_decoder->setAudioInfo(source_audio_info);
     format_converter.begin(source_audio_info, output_info);
 
     pipeline.setInput(buffer_view);
@@ -115,10 +112,9 @@ class AOOSourceLine : public AudioStream {
   /// Stops the pipeline and releases the decoder
   void end() {
     pipeline.end();
-    if (p_decoder != nullptr) {
+    if (p_decoder) {
       p_decoder->end();
-      delete p_decoder;
-      p_decoder = nullptr;
+      p_decoder.reset();
     }
   }
 
@@ -175,7 +171,7 @@ class AOOSourceLine : public AudioStream {
   MutexBase *p_mutex = nullptr;
   IndexedRingBuffer<SingleBuffer<uint8_t>> encoded_buffer;
   IndexedRingBufferStreamView buffer_view;
-  AudioDecoder *p_decoder = nullptr;
+  std::unique_ptr<AudioDecoder> p_decoder;
   EncodedAudioStream encoded_stream;
   FormatConverterStream format_converter;
   Pipeline pipeline;

@@ -337,8 +337,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     info.sender_ip = p_io->senderIP();
     info.sender_port = p_io->senderPort();
 
-    AudioDecoder *p_dec = codec_factory.createDecoder(tmp.format_str.c_str());
-    if (p_dec == nullptr) {
+    std::unique_ptr<AudioDecoder> p_dec(
+        codec_factory.createDecoder(tmp.format_str.c_str()));
+    if (!p_dec) {
       LOGE("Decoder not defined for: %s", tmp.format_str.c_str());
       return false;
     }
@@ -347,9 +348,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     setAudioInfo(info.source_audio_info);
 
     // Set up the pull-based pipeline
-    if (!info.begin(aoo_cfg, p_dec, aoo_cfg.buffer_depth)) {
+    if (!info.begin(aoo_cfg, std::move(p_dec), aoo_cfg.buffer_depth)) {
       LOGE("Pipeline setup failed");
-      delete p_dec;
       return false;
     }
 
@@ -415,13 +415,13 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
         if (s->source_id == source_id && s->hasDecoder()) {
           LOGW("  Found decoder on stream=%d, reusing", s->stream_id);
           // Create a new pipeline for this source line using the same codec
-          AudioDecoder *p_dec =
-              codec_factory.createDecoder(s->format_str.c_str());
-          if (p_dec != nullptr) {
+          std::unique_ptr<AudioDecoder> p_dec(
+              codec_factory.createDecoder(s->format_str.c_str()));
+          if (p_dec) {
             info.source_audio_info = s->source_audio_info;
             info.block_size = s->block_size;
             info.format_str = s->format_str;
-            info.begin(aoo_cfg, p_dec, aoo_cfg.buffer_depth);
+            info.begin(aoo_cfg, std::move(p_dec), aoo_cfg.buffer_depth);
             addSourceToMixer(info);
           }
           break;
