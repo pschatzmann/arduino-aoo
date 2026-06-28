@@ -4,9 +4,9 @@
 #include "AudioTools/AudioCodecs/AudioCodecs.h"
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
 #include "AudioTools/CoreAudio/AudioStreamsConverter.h"
-#include "aoo/AOOBufferView.h"
+#include "AudioTools/CoreAudio/Pipeline.h"
 #include "aoo/AOOMessageHandler.h"
-#include "aoo/AOOPacketRecovery.h"
+#include "aoo/AOOSourceLine.h"
 
 namespace arduino_aoo {
 
@@ -92,12 +92,6 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   /// Stops processing and releases all decoders
   void end() {
     is_active = false;
-    for (auto &p : sources) {
-      if (p->p_decoder != nullptr) {
-        p->p_decoder->end();
-        delete p->p_decoder;
-      }
-    }
     sources.clear();
     mixer.end();
   }
@@ -115,7 +109,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     aoo_cfg.channels = info.channels;
     aoo_cfg.bits_per_sample = info.bits_per_sample;
     for (auto &p : sources) {
-      p->format_converter.begin(p->source_audio_info, aoo_cfg);
+      p->setOutputInfo(p->source_audio_info, aoo_cfg);
     }
   }
 
@@ -226,105 +220,6 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
    * pipeline reads: buffer_view -> EncodedAudioStream(decoder) ->
    * FormatConverterStream -> ResampleStream.
    */
-  struct AAOSourceLine {
-    AAOSourceLine() = default;
-
-    // Identity
-    int32_t source_id = 0;
-    int32_t sink_id = 0;
-    int32_t stream_id = 0;
-    uint32_t last_data_time = 0;
-    int32_t block_size = 0;
-    int32_t codec_delay_samples = 0;
-    IPAddress sender_ip;
-    uint16_t sender_port = 0;
-    AudioInfo source_audio_info{0, 0, 0};
-    Str format_str;
-
-    // Encoded data storage (serves as jitter buffer)
-    IndexedRingBuffer<SingleBuffer<uint8_t>> encoded_buffer;
-    IndexedRingBufferStreamView buffer_view;
-    BufferStatsTracker stats_tracker;
-
-    // Decoding pipeline (pull-based)
-    AudioDecoder *p_decoder = nullptr;
-    EncodedAudioStream encoded_stream;
-    FormatConverterStream format_converter;
-
-    // Recovery
-    AOOPacketRecovery recovery;
-
-    // Drift estimation
-    uint32_t first_data_time = 0;
-    uint64_t total_frames_received = 0;
-
-    // Multi-frame assembly
-    int32_t assembly_seq = -1;
-    int32_t assembly_total_frames = 0;
-    int32_t assembly_received = 0;
-    int32_t assembly_total_size = 0;
-    std::vector<uint8_t> assembly_buffer;
-
-    /// Optional mutex for thread-safe buffer access (set by AOOReceiverTask)
-    MutexBase* p_mutex = nullptr;
-
-    /// Store an encoded segment into the ring buffer (locks if mutex set)
-    bool storeEncodedData(int32_t seq, const uint8_t *data, size_t len) {
-      size_t written;
-      {
-        LockGuard lock(p_mutex);
-        written = encoded_buffer.write(seq, data, len);
-      }
-      if (written > 0) {
-        stats_tracker.received(seq);
-        buffer_view.notifySegmentReceived();
-        last_data_time = millis();
-        total_frames_received++;
-        if (first_data_time == 0) first_data_time = millis();
-      }
-      return written > 0;
-    }
-
-    /// Set up the pull-based decoding pipeline
-    bool setupPipeline(AudioInfo output_info, AudioDecoder *decoder,
-                       int buffer_depth) {
-      p_decoder = decoder;
-      encoded_buffer.resize(buffer_depth);
-      buffer_view.setBuffer(&encoded_buffer);
-      buffer_view.setStartSeq(-1);
-
-      // Wire: buffer_view -> EncodedAudioStream(decoder) -> FormatConverterStream
-      // FormatConverterStream handles channel/bit/sample-rate conversion internally
-      // (its internal ResampleStream is also used for drift compensation)
-      encoded_stream.setDecoder(decoder);
-      encoded_stream.setStream(buffer_view);
-      decoder->setAudioInfo(source_audio_info);
-      encoded_stream.begin(source_audio_info);
-
-      format_converter.setStream(encoded_stream);
-      format_converter.begin(source_audio_info, output_info);
-
-      return true;
-    }
-
-    /// Update drift compensation by reconfiguring FormatConverterStream
-    /// with the effective received sample rate
-    void updateDrift(AudioInfo output_info) {
-      if (first_data_time == 0 || total_frames_received < 10) return;
-      uint32_t elapsed_ms = millis() - first_data_time;
-      if (elapsed_ms < 1000) return;
-      float effective_rate =
-          (float)total_frames_received * block_size * 1000.0f / elapsed_ms;
-      if (effective_rate > 0) {
-        AudioInfo from = source_audio_info;
-        from.sample_rate = (int)effective_rate;
-        format_converter.begin(from, output_info);
-      }
-    }
-
-    /// Quality percentage based on stats tracker
-    float qualityPercent() const { return stats_tracker.qualityPercent(); }
-  };
 
   bool is_active = false;
   Stats stats_;
@@ -332,11 +227,11 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   AOOMessageHandler msg_handler;
   InputMixer<int16_t> mixer;
   CodecFactory codec_factory;
-  std::vector<std::unique_ptr<AAOSourceLine>> sources;
+  std::vector<std::unique_ptr<AOOSourceLine>> sources;
   AOOReceiverConfig aoo_cfg;
 
   /// Find or create a source line
-  AAOSourceLine &getSourceLine(int32_t source_id, int32_t sink_id,
+  AOOSourceLine &getSourceLine(int32_t source_id, int32_t sink_id,
                                int32_t stream_id) {
     TRACED();
     for (auto &p : sources) {
@@ -345,7 +240,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
         return *p;
       }
     }
-    auto p = std::unique_ptr<AAOSourceLine>(new AAOSourceLine());
+    auto p = std::unique_ptr<AOOSourceLine>(new AOOSourceLine());
     p->source_id = source_id;
     p->sink_id = sink_id;
     p->stream_id = stream_id;
@@ -359,18 +254,13 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   }
 
   void removeSource(int idx) {
-    auto &p = sources[idx];
-    if (p->p_decoder != nullptr) {
-      p->p_decoder->end();
-      delete p->p_decoder;
-    }
     sources.erase(sources.begin() + idx);
     rebuildMixer();
   }
 
-  void addSourceToMixer(AAOSourceLine &source) {
-    if (source.buffer_view.isPrimed()) {
-      mixer.add(source.format_converter);
+  void addSourceToMixer(AOOSourceLine &source) {
+    if (source.isPrimed()) {
+      mixer.add(source);
     }
   }
 
@@ -380,8 +270,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     mixer.setRetryCount(0);
     mixer.setLimitToAvailableData(false);
     for (auto &p : sources) {
-      if (p->buffer_view.isPrimed()) {
-        mixer.add(p->format_converter);
+      if (p->isPrimed()) {
+        mixer.add(*p);
       }
     }
   }
@@ -395,23 +285,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
   // --- AOOMessageListener callbacks (ping/pong handled by AOOMessageHandler) ---
 
-  bool onStart(OSCData& osc) override {
-    return processStartMessage(aoo_cfg.id, osc);
-  }
-  bool onStop(OSCData& osc) override {
-    return processStopMessage(aoo_cfg.id, osc);
-  }
-  bool onDecline(OSCData& osc) override {
-    return processDeclineMessage(aoo_cfg.id, osc);
-  }
-  bool onData(AOOData& data) override {
-    return onDataReceived(data);
-  }
-  bool onBinaryData(const uint8_t* data, size_t len) override {
-    return true;
-  }
-
-  void parseStartMessage(OSCData &osc, AAOSourceLine &tmp) {
+  void parseStartMessage(OSCData &osc, AOOSourceLine &tmp) {
     AOOStart aoo_start;
     if (aoo_start.parse(osc.data(), osc.size())) {
       tmp.source_id = aoo_start.source_id;
@@ -427,23 +301,21 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     }
   }
 
-  bool processStartMessage(int sink_id, OSCData &data) {
+  bool onStart(OSCData &data) override {
     TRACED();
-    AAOSourceLine tmp;
+    AOOSourceLine tmp;
     parseStartMessage(data, tmp);
 
     LOGI("Received start: ch=%d, rate=%d, blocksize=%d, codec=%s",
          tmp.source_audio_info.channels, tmp.source_audio_info.sample_rate,
          tmp.block_size, tmp.format_str.c_str());
 
-    AAOSourceLine &info = getSourceLine(tmp.source_id, sink_id, tmp.stream_id);
+    AOOSourceLine &info = getSourceLine(tmp.source_id, aoo_cfg.id, tmp.stream_id);
 
     // Clean up existing decoder if this is a duplicate /start
-    if (info.p_decoder != nullptr) {
+    if (info.hasDecoder()) {
       LOGI("Re-initializing source %d (duplicate /start)", tmp.source_id);
-      info.p_decoder->end();
-      delete info.p_decoder;
-      info.p_decoder = nullptr;
+      info.end();
     }
 
     info.source_audio_info = tmp.source_audio_info;
@@ -465,7 +337,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     setAudioInfo(info.source_audio_info);
 
     // Set up the pull-based pipeline
-    if (!info.setupPipeline(aoo_cfg, p_dec, aoo_cfg.buffer_depth)) {
+    if (!info.begin(aoo_cfg, p_dec, aoo_cfg.buffer_depth)) {
       LOGE("Pipeline setup failed");
       delete p_dec;
       return false;
@@ -479,7 +351,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     return true;
   }
 
-  bool processStopMessage(int sink_id, OSCData &data) {
+  bool onStop(OSCData &data) override {
     TRACED();
     AOOStopSink stop;
     if (!stop.parse(data.data(), data.size())) {
@@ -497,7 +369,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     return true;
   }
 
-  bool processDeclineMessage(int sink_id, OSCData &data) {
+  bool onDecline(OSCData &data) override {
     TRACED();
     AOODecline decline;
     if (!decline.parse(data.data(), data.size())) {
@@ -512,7 +384,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   /// Common data processing for both OSC and binary data messages.
   /// Stores encoded data into the source's ring buffer instead of
   /// decoding immediately.
-  bool onDataReceived(AOOData &aoo_data) {
+  bool onData(AOOData &aoo_data) override {
     int32_t source_id = aoo_data.source_id;
     int32_t stream_id = aoo_data.stream_id;
     int32_t seq = aoo_data.seq_no;
@@ -520,17 +392,17 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     int32_t frame_idx = aoo_data.frame_idx;
     int32_t total_size = aoo_data.total_size;
 
-    AAOSourceLine &info = getSourceLine(source_id, aoo_cfg.id, stream_id);
+    AOOSourceLine &info = getSourceLine(source_id, aoo_cfg.id, stream_id);
     info.sender_ip = p_io->senderIP();
     info.sender_port = p_io->senderPort();
 
-    if (info.p_decoder == nullptr) {
+    if (!info.hasDecoder()) {
       stats_.no_decoder++;
       LOGW("No decoder: source=%d sink=%d stream=%d (have %d sources)",
            source_id, aoo_cfg.id, stream_id, (int)sources.size());
       // Try to reuse decoder from same source with different stream_id
       for (auto &s : sources) {
-        if (s->source_id == source_id && s->p_decoder != nullptr) {
+        if (s->source_id == source_id && s->hasDecoder()) {
           LOGW("  Found decoder on stream=%d, reusing", s->stream_id);
           // Create a new pipeline for this source line using the same codec
           AudioDecoder *p_dec =
@@ -539,13 +411,13 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
             info.source_audio_info = s->source_audio_info;
             info.block_size = s->block_size;
             info.format_str = s->format_str;
-            info.setupPipeline(aoo_cfg, p_dec, aoo_cfg.buffer_depth);
+            info.begin(aoo_cfg, p_dec, aoo_cfg.buffer_depth);
             addSourceToMixer(info);
           }
           break;
         }
       }
-      if (info.p_decoder == nullptr) return false;
+      if (!info.hasDecoder()) return false;
     }
 
     // Multi-frame reassembly
@@ -596,16 +468,15 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     bool mixer_changed = false;
     for (auto &p : sources) {
       // Add newly primed sources to mixer
-      if (p->buffer_view.isPrimed() &&
-          mixer.indexOf(p->format_converter) < 0) {
-        mixer.add(p->format_converter);
+      if (p->isPrimed() &&
+          mixer.indexOf(*p) < 0) {
+        mixer.add(*p);
         mixer_changed = true;
         LOGI("Source %d added to mixer (primed)", p->source_id);
       }
 
       // Update statistics
-      p->stats_tracker.updateStats(p->encoded_buffer,
-                                   p->buffer_view.currentSeq());
+      p->updateStats();
 
       // Conditional resend requests
       if (aoo_cfg.recovery_max_requests > 0 &&
@@ -655,7 +526,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     }
   }
 
-  bool aooSendRequestData(AAOSourceLine &info, int32_t seq, int32_t frame) {
+  bool aooSendRequestData(AOOSourceLine &info, int32_t seq, int32_t frame) {
     stats_.resend_requests++;
     LOGD("Requesting resend seq %d from source %d", seq, info.source_id);
     retargetTo(info.sender_ip, info.sender_port);

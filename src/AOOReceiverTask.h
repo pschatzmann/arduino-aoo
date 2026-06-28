@@ -82,9 +82,7 @@ class AOOReceiverTask : public AOOReceiver {
   /// Propagate the mutex to all source lines and their buffer views
   void setMutexOnSources() {
     for (auto &p : sources) {
-      p->p_mutex = &mutex;
-      p->buffer_view.setMutex(&mutex);
-      p->stats_tracker.setMutex(&mutex);
+      p->setMutex(&mutex);
     }
   }
 
