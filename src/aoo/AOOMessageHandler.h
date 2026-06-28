@@ -80,6 +80,7 @@ class AOOMessageHandler {
     while (p_io != nullptr && p_io->available() > 0) {
       if (!processOneMessage()) break;
       count++;
+      yield();  // Allow other tasks to run in cooperative multitasking environments
     }
     return count;
   }
