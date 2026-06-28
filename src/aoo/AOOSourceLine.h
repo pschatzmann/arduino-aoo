@@ -80,7 +80,7 @@ class AOOSourceLine : public AudioStream {
     }
     if (written > 0) {
       stats_tracker.received(seq);
-      buffer_view.notifySegmentReceived();
+      buffer_view.notifySegmentReceived(seq);
       last_data_time = millis();
       total_frames_received++;
       if (first_data_time == 0) first_data_time = millis();

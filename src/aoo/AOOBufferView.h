@@ -110,6 +110,7 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Resets the read position to the given sequence number
   void setStartSeq(int32_t seq) {
     read_seq = seq;
+    max_write_seq = -1;
     read_offset = 0;
     segments_received = 0;
     is_primed = false;
@@ -119,15 +120,21 @@ class IndexedRingBufferStreamView : public AudioStream {
   int32_t currentSeq() const { return read_seq; }
 
   /// Call when a new segment is stored in the buffer (locks if mutex set)
-  void notifySegmentReceived() {
+  void notifySegmentReceived(int32_t seq) {
     LockGuard lock(p_mutex);
+    if (seq > max_write_seq) max_write_seq = seq;
     segments_received++;
     if (!is_primed && p_buffer != nullptr) {
       int half = p_buffer->size() / 2;
       if (segments_received >= half) {
         is_primed = true;
-        LOGI("Buffer primed after %d segments (half of %d)",
-             segments_received, (int)p_buffer->size());
+        if (read_seq < 0) {
+          int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
+          if (oldest < 0) oldest = 0;
+          read_seq = oldest - 1;
+        }
+        LOGI("Buffer primed after %d segments (half of %d), read from seq %d",
+             segments_received, (int)p_buffer->size(), (int)(read_seq + 1));
       }
     }
   }
@@ -137,8 +144,10 @@ class IndexedRingBufferStreamView : public AudioStream {
 
   /// Returns the number of bytes available for reading
   int available() override {
-    if (p_buffer == nullptr || read_seq < 0 || !is_primed) return 0;
+    if (p_buffer == nullptr || !is_primed) return 0;
     LockGuard lock(p_mutex);
+    catchUpReadSeq();
+    if (read_seq < 0) return 0;
     auto* entry = p_buffer->get(read_seq + 1);
     if (entry != nullptr && entry->active) {
       int remaining = entry->available() - read_offset;
@@ -160,8 +169,24 @@ class IndexedRingBufferStreamView : public AudioStream {
       auto* entry = p_buffer->get(next_seq);
 
       if (entry == nullptr || !entry->active) {
-        // Gap: fill with silence and skip to next segment so the
-        // downstream decoder/mixer keeps running instead of stalling.
+        // If reader has fallen behind the buffer, jump to oldest available
+        if (max_write_seq >= 0) {
+          int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
+          if (oldest < 0) oldest = 0;
+          if (next_seq < oldest) {
+            LOGD("Reader catch-up: seq %d -> %d", (int)next_seq, (int)oldest);
+            read_seq = oldest - 1;
+            read_offset = 0;
+            gaps_filled++;
+            if (last_segment_size > 0) {
+              size_t silence = std::min((size_t)last_segment_size, len - total_read);
+              memset(data + total_read, 0, silence);
+              total_read += silence;
+            }
+            break;
+          }
+        }
+        // Normal gap: fill with silence and advance one segment
         if (last_segment_size > 0) {
           size_t silence_len = std::min((size_t)last_segment_size, len - total_read);
           memset(data + total_read, 0, silence_len);
@@ -203,9 +228,24 @@ class IndexedRingBufferStreamView : public AudioStream {
   size_t write(const uint8_t* data, size_t len) override { return 0; }
 
  protected:
+  /// Jumps read_seq forward when the reader has fallen behind the buffer.
+  /// Must be called with the mutex held.
+  void catchUpReadSeq() {
+    if (max_write_seq >= 0 && p_buffer != nullptr && read_seq >= 0) {
+      int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
+      if (oldest < 0) oldest = 0;
+      if (read_seq + 1 < oldest) {
+        LOGD("Reader catch-up: seq %d -> %d", (int)(read_seq + 1), (int)oldest);
+        read_seq = oldest - 1;
+        read_offset = 0;
+      }
+    }
+  }
+
   IndexedRingBuffer<SingleBuffer<uint8_t>>* p_buffer = nullptr;
   MutexBase* p_mutex = nullptr;
   int32_t read_seq = -1;
+  int32_t max_write_seq = -1;
   size_t read_offset = 0;
   int segments_received = 0;
   bool is_primed = false;
