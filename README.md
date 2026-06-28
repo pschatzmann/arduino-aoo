@@ -66,6 +66,7 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 
 - [Quick Start & Examples](doc/quickstart.md)
 - [Architecture & Features](doc/architecture.md)
+- [Desktop Build](doc/desktop-build.md)
 - [AoO V2.0 Protocol Specification](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md)
 - [OSC V1.0 Specification](https://opensoundcontrol.stanford.edu/spec-1_0.html)
 
