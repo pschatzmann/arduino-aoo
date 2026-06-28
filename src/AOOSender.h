@@ -2,12 +2,9 @@
 #include "AOOConfig.h"
 #include "AudioTools/AudioCodecs/AudioCodecs.h"
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
-#include "AudioTools/Communication/OSCData.h"
 #include "AudioTools/CoreAudio/AudioOutput.h"
 #include "aoo/AOOBuffers.h"
-#include "aoo/AOOClockSync.h"
-#include "aoo/AOOProtocol.h"
-#include "aoo/AOOStream.h"
+#include "aoo/AOOMessageHandler.h"
 
 namespace arduino_aoo {
 
@@ -35,7 +32,7 @@ namespace arduino_aoo {
  * @author Phil Schatzmann
  * @copyright GPLv3
  */
-class AOOSender : public AudioOutput {
+class AOOSender : public AudioOutput, public AOOMessageListener {
  public:
   /// @param id unique source identifier used in AOO addressing
   /// @param output transport stream for sending/receiving OSC messages (e.g.
@@ -43,6 +40,10 @@ class AOOSender : public AudioOutput {
   AOOSender(int id, AOOStream& output) {
     cfg.id = id;
     p_output = &output;
+    msg_handler.setStream(output);
+    msg_handler.setListener(*this);
+    msg_handler.setAddressPrefix("/aoo/src/");
+    msg_handler.setId(id);
   }
   ~AOOSender() { end(); };
 
@@ -66,15 +67,9 @@ class AOOSender : public AudioOutput {
 
   /// Provides a default configuration pre-filled with current values
   AOOSenderConfig defaultConfig() {
-    AOOSenderConfig cfg;
-    cfg.copyFrom(audioInfo());
-    cfg.id = cfg.id;
-    cfg.sink_targets = cfg.sink_targets;
-    cfg.max_frame_size = cfg.max_frame_size;
-    cfg.codec_delay_samples = cfg.codec_delay_samples;
-    cfg.log_osc = cfg.log_osc;
-    cfg.ping_interval_ms = cfg.ping_interval_ms;
-    return cfg;
+    AOOSenderConfig result = this->cfg;
+    result.copyFrom(audioInfo());
+    return result;
   }
 
   /// Starts the processing with full configuration
@@ -182,7 +177,7 @@ class AOOSender : public AudioOutput {
   }
 
   /// Access clock synchronization state (updated from pong messages)
-  AOOClockSync& clockSync() { return clock_sync; }
+  AOOClockSync& clockSync() { return msg_handler.clockSync(); }
 
   size_t getTotalBytesSent() { return total_bytes_sent; }
 
@@ -199,9 +194,7 @@ class AOOSender : public AudioOutput {
   EncoderNetworkFormat pcm_encoder;
   AudioEncoder* p_encoder = &pcm_encoder;
   IndexedRingBuffer<SingleBuffer<uint8_t>> aoo_out_buffer;
-  AOOClockSync clock_sync;
-  // std::vector<AOOSinkTarget> sink_targets;
-  std::vector<uint8_t> aoo_in_buffer;
+  AOOMessageHandler msg_handler;
 
   /// Write output of encoder to the defined output stream
   class EncoderOutput : public AudioOutput {
@@ -334,89 +327,18 @@ class AOOSender : public AudioOutput {
 
   bool aoo_receive() {
     TRACED();
-    // process ping and resend requests with priority
-    size_t avail = p_output->available();
-    while (avail > 0) {
-      // Read data into buffer (resize if necessary)
-      if (aoo_in_buffer.size() < avail) aoo_in_buffer.resize(avail);
-      size_t read = p_output->readBytes(aoo_in_buffer.data(), avail);
-
-      // Stop if there is no data
-      if (read == 0) {
-        return true;
-      }
-
-      // Parse OSC message
-      OSCData data;
-      data.setLogActive(cfg.log_osc);
-      if (!data.parse(aoo_in_buffer.data(), read)) {
-        LOGE("Failed to parse OSC message");
-        return false;
-      }
-
-      // Process the received message
-      const char* address = data.getAddress();
-      if (StrView(address).contains("/pong")) {
-        LOGD("pong");
-        return processPong(data);
-      } else if (StrView(address).contains("/ping")) {
-        LOGD("ping");
-        return processPing(data);
-      } else if (StrView(address).contains("/start")) {
-        LOGD("start");
-        return processRequestStart(data);
-      } else if (StrView(address).contains("/invite")) {
-        LOGD("invite");
-        return processInvite(data);
-      } else if (StrView(address).contains("/uninvite")) {
-        LOGD("uninvite");
-        return processUninvite(data);
-      } else if (StrView(address).contains("/stop")) {
-        LOGI("stop");
-        return processStopRequest(data);
-      } else if (StrView(address).contains("/data")) {
-        LOGI("data");
-        return processResendRequest(data);
-      } else {
-        LOGW("Unknown address: %s", address);
-      }
-    }
+    msg_handler.setLogOsc(cfg.log_osc);
+    msg_handler.processMessages();
     return true;
   }
 
-  /// Process pong message (reply to our ping)
-  bool processPong(OSCData& osc) {
-    TRACED();
-    AOOPongSource pong;
-    if (!pong.parse(osc.messageData().data, osc.messageData().len)) {
-      LOGE("Failed to parse pong message");
-      return false;
-    }
-    uint64_t t4 = micros();
-    clock_sync.update(pong.t1, pong.t2, pong.t3, t4);
-    LOGI("Pong: rtt=%lu us, offset=%ld us",
-         (unsigned long)clock_sync.rttMicros(),
-         (long)clock_sync.offsetMicros());
-    return true;
-  }
+  // --- AOOMessageListener callbacks (ping/pong handled by AOOMessageHandler) ---
 
-  /// Process ping message from sink, reply with pong
-  bool processPing(OSCData& osc) {
-    TRACED();
-    AOOPingSource ping;
-    if (!ping.parse(osc.messageData().data, osc.messageData().len)) {
-      LOGE("Failed to parse ping message");
-      return false;
-    }
-
-    AOOPongSink pong;
-    pong.source_id = cfg.id;
-    pong.sink_id = ping.sink_id;
-    pong.t1 = ping.send_time;
-    pong.t2 = micros();
-    pong.t3 = micros();
-    return aoo_send_message(pong);
-  }
+  bool onStart(OSCData& osc) override { return processRequestStart(osc); }
+  bool onInvite(OSCData& osc) override { return processInvite(osc); }
+  bool onUninvite(OSCData& osc) override { return processUninvite(osc); }
+  bool onStop(OSCData& osc) override { return processStopRequest(osc); }
+  bool onResendRequest(OSCData& osc) override { return processResendRequest(osc); }
 
   /// Process a start request from a sink — re-send the start message
   bool processRequestStart(OSCData& osc) {

@@ -1,7 +1,8 @@
 /***
  * @brief We receive audio data using Audio Over OSC (AOO) via UDP.
  * We support the decoding of pcm and opus.
- * The audio output is done to the I2SStream.
+ * The AOOReceiver is an AudioStream — use StreamCopy to pull decoded
+ * audio and write it to I2S (or any other output).
  */
 #include "WiFi.h"
 #include "AudioTools.h"
@@ -20,7 +21,8 @@ const char* password = "password";
 const int udpPort = 9998;
 AOOStreamUDP udp(udpPort);
 I2SStream i2s;  // or any other e.g. AudioBoardStream i2s(AudioKitEs8388V1);
-AOOReceiver aoo_receiver(1, udp, i2s); // or AOOReceiverSingle
+AOOReceiver aoo_receiver(1, udp);  // no output in constructor
+StreamCopy copier(i2s, aoo_receiver);  // receiver is the audio SOURCE
 
 // Each sender instance needs to have it separate decoder instance!
 AudioDecoder *createOpusDecoder() {
@@ -28,7 +30,6 @@ AudioDecoder *createOpusDecoder() {
   decoder->config().default_channel_mapping = OPUS_CHANNEL_MAPPING_SEPARATE;
   return decoder;
 }
-
 
 void setup() {
   Serial.begin(115200);
@@ -49,26 +50,29 @@ void setup() {
   // register decoders
   aoo_receiver.addDecoder("opus", createOpusDecoder);
 
-  auto cfg = aoo_receiver.defaultConfig();
+  // --- Simple: start with no config (auto-detect from first message) ---
+  aoo_receiver.begin();
+
+  // --- Alternative: start with full configuration ---
+  // auto cfg = aoo_receiver.defaultConfig();
   // cfg.sample_rate = 44100;
   // cfg.channels = 2;
   // cfg.bits_per_sample = 16;
   //
-  // Jitter buffer: hold 5 blocks before releasing
-  // cfg.jitter_buffer_depth = 5;
-  // cfg.jitter_buffer_block_size = 4096;
-  
-  // Adaptive resampling to compensate for clock drift
-  // cfg.adaptive_resampling = true;
-  
-  // Auto-remove sources that stop sending after 5 seconds
-  // cfg.stream_timeout_ms = 5000;
-  
-  // Tune packet recovery timing
-  // cfg.recovery_wait_ms = 30;
-  // cfg.recovery_max_requests = 5;
+  // // Buffer depth for encoded segments (also serves as jitter buffer)
+  // // cfg.buffer_depth = 10;
   //
-  aoo_receiver.begin(cfg);
+  // // Adaptive resampling to compensate for clock drift
+  // // cfg.adaptive_resampling = true;
+  //
+  // // Auto-remove sources that stop sending after 5 seconds
+  // // cfg.stream_timeout_ms = 5000;
+  //
+  // // Tune packet recovery timing
+  // // cfg.recovery_wait_ms = 30;
+  // // cfg.recovery_max_requests = 5;
+  //
+  // aoo_receiver.begin(cfg);
 
   // // Invite a specific source to start streaming to us
   // // aoo_receiver.invite(1);
@@ -77,5 +81,5 @@ void setup() {
 }
 
 void loop() {
-  aoo_receiver.copy();
+  copier.copy();  // pulls from aoo_receiver.readBytes() -> writes to i2s
 }

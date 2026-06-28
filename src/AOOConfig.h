@@ -2,17 +2,6 @@
 #include <vector>
 #include "AudioTools.h"
 
-/// Maximum receive buffer size for source
-#ifndef AAO_MAX_SOURCE_BUFFER
-#define AAO_MAX_SOURCE_BUFFER 70
-#endif
-
-/// Maximum receive buffer size for sink: we need to be able to hold
-/// the audio data message
-#ifndef AAO_MAX_SINK_BUFFER
-#define AAO_MAX_SINK_BUFFER (1024 * 2)
-#endif
-
 /// Maximum address size for AOO messages
 #ifndef AOO_MAX_ADDRESS_LEN
 #define AOO_MAX_ADDRESS_LEN 80
@@ -21,24 +10,9 @@
 /// AOO protocol version string
 #define AOO_VERSION "2.0"
 
-/// Default jitter buffer depth (number of blocks)
-#ifndef AOO_JITTER_BUFFER_DEPTH
-#define AOO_JITTER_BUFFER_DEPTH 5
-#endif
-
 /// Default ping interval in ms
 #ifndef AOO_PING_INTERVAL_MS
 #define AOO_PING_INTERVAL_MS 1000
-#endif
-
-/// Default packet recovery wait time in ms before requesting resend
-#ifndef AOO_RECOVERY_WAIT_MS
-#define AOO_RECOVERY_WAIT_MS 20
-#endif
-
-/// Default max resend attempts before abandoning a packet
-#ifndef AOO_RECOVERY_MAX_REQUESTS
-#define AOO_RECOVERY_MAX_REQUESTS 3
 #endif
 
 namespace arduino_aoo {
@@ -101,18 +75,37 @@ struct AOOReceiverConfig : public AudioInfo {
 
   /// Unique sink identifier used in AOO addressing; 0 = auto-assign from first message
   int id = 0;
-  /// Jitter buffer depth (number of blocks); 0 = disabled
-  int jitter_buffer_depth = 0;
+  /// Number of encoded segments to buffer per source. Data is only provided
+  /// once the buffer is half full, giving time for packet recovery.
+  /// The priming delay = (buffer_depth / 2) * (block_size / sample_rate).
+  /// With the default of 10 and typical 10ms blocks: 5 * 10ms = 50ms delay,
+  /// which is enough for WiFi resend round-trips (10-30ms).
+  /// Increase to 20 for lossy networks or small block sizes (<5ms).
+  /// Memory per source: buffer_depth * encoded_segment_size
+  /// (e.g. 10 * ~100 bytes for Opus, 10 * ~960 bytes for PCM mono).
+  int buffer_depth = 10;
   /// Enable adaptive resampling to compensate for source/sink clock drift
-  bool adaptive_resampling = false;
-  /// Wait time in ms before requesting a resend for missing packets; 0 = disabled
-  int recovery_wait_ms = 0;
-  /// Maximum resend attempts before abandoning a missing packet
-  int recovery_max_requests = 0;
-  /// Internal mixer buffer size;
-  int mixer_size = 2 * 1024;
+  bool adaptive_resampling = true;
+  /// Wait time in ms before requesting a resend for missing packets.
+  /// Should be less than half the priming delay so the resent packet
+  /// arrives before the read pointer reaches the gap.
+  /// With buffer_depth=10 and 10ms blocks: priming = 50ms, so 20ms
+  /// gives the resent packet ~30ms to arrive.
+  int recovery_wait_ms = 20;
+  /// Maximum resend attempts per missing packet. Keep at 1 to
+  /// avoid flooding the network — the min_quality_percent gate
+  /// already prevents resends during bad periods.
+  int recovery_max_requests = 1;
+  /// Only send resend requests when quality is above this threshold.
+  /// At 98%: with 100 blocks/sec, allows resends for up to 2 gaps/sec.
+  /// Below this threshold resends are suppressed to avoid making
+  /// congestion worse.
+  float min_quality_percent = 98.0f;
+  /// Remove sources below this quality percentage. At 50%: a source
+  /// losing more than half its packets is dropped from the mixer.
+  float min_source_quality = 50.0f;
   /// Auto-remove sources that haven't sent data for this many ms; 0 = disabled
-  int stream_timeout_ms = 0;
+  int stream_timeout_ms = 5000;
   /// Log raw OSC message headers for debugging
   bool log_osc = false;
 };

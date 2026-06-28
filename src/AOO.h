@@ -23,8 +23,11 @@
 #include "AOOReceiver.h"
 #include "AOOSender.h"
 #include "AudioTools.h"
-#include "AudioTools/Communication/OSCData.h"
 #include "aoo/AOOProtocol.h"
+
+#if defined(ESP32) || defined(USE_FREERTOS)
+#include "AOOReceiverTask.h"
+#endif
 
 #if defined(ARDUINO) && !defined(NO_AOO_NAMESPACE)
 using namespace arduino_aoo;
