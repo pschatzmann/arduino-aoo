@@ -29,6 +29,12 @@ class AOOStream : public Stream {
   virtual IPAddress senderIP() { return IPAddress(); }
   /// Returns the port of the last received message's sender
   virtual uint16_t senderPort() { return 0; }
+  /// Sets the read timeout in ms. Virtual so calls through an AOOStream*
+  /// (e.g. from AOOMessageHandler) reach a subclass's actual transport
+  /// instead of only the inherited, unused Stream::_timeout field.
+  virtual void setTimeout(unsigned long timeoutMs) {
+    Stream::setTimeout(timeoutMs);
+  }
 
   /// Returns the number of bytes available for reading
   int available() override { return 0; }
@@ -140,8 +146,8 @@ class AOOStreamUDP : public AOOStream {
   /// Writes a single byte as a UDP packet
   size_t write(uint8_t val) override { return write(&val, 1); }
 
-  /// Sets the read timeout
-  void setTimeout(int timeout) { udp.setTimeout(); }
+  /// Sets the read timeout on the underlying UDP socket
+  void setTimeout(unsigned long timeoutMs) override { udp.setTimeout(timeoutMs); }
 
  protected:
   UDP_t udp;

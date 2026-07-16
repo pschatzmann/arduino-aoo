@@ -119,8 +119,10 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   size_t readBytes(uint8_t *data, size_t len) override {
     if (!is_active || sources.empty()) return 0;
 
-    // Process incoming network messages (stores encoded data)
-    processMessages();
+    // Process incoming network messages (stores encoded data), unless
+    // available() already did so for this same StreamCopy cycle.
+    if (!just_processed_messages_) processMessages();
+    just_processed_messages_ = false;
 
     // Post-processing: resend requests, drift adjustment, source management
     postProcessing();
@@ -135,6 +137,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   int available() override {
     if (!is_active) return 0;
     processMessages();
+    just_processed_messages_ = true;
     if (sources.size() == 1) {
       return sources[0]->available();
     }
@@ -150,8 +153,10 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   /// Provides the number of sources that will be mixed
   int getSourceCount() { return sources.size(); }
 
-  /// Returns the total number of buffer underruns across all sources
-  uint32_t xrunCount() {
+  /// Returns the total number of buffer underruns across all sources.
+  /// Virtual so AOOReceiverTask can override it to add locking, even when
+  /// called through a base AOOReceiver& / AOOReceiver* reference.
+  virtual uint32_t xrunCount() {
     uint32_t total = 0;
     for (auto &p : sources) {
       total += p->stats_tracker.stats().total_gaps;
@@ -159,8 +164,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     return total;
   }
 
-  /// Resets the xrun counters for all sources
-  void resetXrunCount() {
+  /// Resets the xrun counters for all sources. Virtual for the same reason
+  /// as xrunCount() above.
+  virtual void resetXrunCount() {
     for (auto &p : sources) {
       p->stats_tracker.reset();
     }
@@ -239,6 +245,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   CodecFactory codec_factory;
   std::vector<std::unique_ptr<AOOSourceLine>> sources;
   AOOReceiverConfig aoo_cfg;
+  bool just_processed_messages_ = false;
 
   /// Find or create a source line
   AOOSourceLine &getSourceLine(int32_t source_id, int32_t sink_id,
@@ -432,6 +439,19 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
     // Multi-frame reassembly
     if (total_frames > 1) {
+      // total_size/frame_idx come straight off the wire: reject anything
+      // implausible before it can size an allocation or drive a memcpy
+      // offset (a negative frame_idx would otherwise underflow `offset`
+      // below and write before the start of assembly_buffer).
+      constexpr int32_t kMaxAssemblySize = 1 << 20;  // 1MB safety cap
+      if (total_size <= 0 || total_size > kMaxAssemblySize || frame_idx < 0 ||
+          frame_idx >= total_frames) {
+        LOGW(
+            "Rejecting malformed multi-frame data: total_size=%d "
+            "frame_idx=%d frames=%d",
+            (int)total_size, (int)frame_idx, (int)total_frames);
+        return false;
+      }
       if (info.assembly_seq != seq) {
         stats_.assembly_started++;
         info.assembly_seq = seq;
@@ -446,7 +466,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       int32_t max_per_frame = (total_size + total_frames - 1) / total_frames;
       int32_t offset = frame_idx * max_per_frame;
       int32_t copy_len = aoo_data.audio_data.len;
-      if (offset + copy_len <= info.assembly_total_size) {
+      if (copy_len > 0 && offset >= 0 &&
+          offset + copy_len <= info.assembly_total_size) {
         memcpy(info.assembly_buffer.data() + offset, aoo_data.audio_data.data,
                copy_len);
       }

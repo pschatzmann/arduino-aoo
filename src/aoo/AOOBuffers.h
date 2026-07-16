@@ -75,55 +75,9 @@ class IndexedRingBuffer {
     return e->writeArray(data, len);
   }
 
-  /// Advances the write position and returns the next slot
-  Entry* writeEnd() {
-    if (entries_.empty()) return nullptr;
-
-    Entry& e = entries_[write_pos_];
-
-    write_pos_ = (write_pos_ + 1) % entries_.size();
-
-    if (count_ < entries_.size())
-      ++count_;
-    else
-      read_pos_ = (read_pos_ + 1) % entries_.size();
-
-    e.clear();
-
-    return &e;
-  }
-
-  /// Returns the front entry and advances the read position
-  Entry* readFront() {
-    if (count_ == 0) return nullptr;
-
-    Entry& e = entries_[read_pos_];
-
-    read_pos_ = (read_pos_ + 1) % entries_.size();
-    --count_;
-
-    return &e;
-  }
-
-  /// Returns true if no entries are queued
-  bool isEmpty() const { return count_ == 0; }
-
-  /// Returns true if all slots are in use
-  bool isFull() const { return !entries_.empty() && count_ == entries_.size(); }
-
-  /// Returns the number of entries queued
-  size_t available() const { return count_; }
-
-  /// Returns the number of free slots
-  size_t availableForWrite() const { return entries_.size() - count_; }
-
-  /// Clears all entries and resets positions
+  /// Clears all entries
   void reset() {
     for (auto& e : entries_) e.clear();
-
-    read_pos_ = 0;
-    write_pos_ = 0;
-    count_ = 0;
   }
 
   /// Returns the number of entries with active data
@@ -143,9 +97,6 @@ class IndexedRingBuffer {
   }
 
   std::vector<Entry> entries_;
-  size_t read_pos_ = 0;
-  size_t write_pos_ = 0;
-  size_t count_ = 0;
 };
 
 

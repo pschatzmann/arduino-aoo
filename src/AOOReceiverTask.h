@@ -1,9 +1,21 @@
 #pragma once
 #include "AOOReceiver.h"
-#include "AudioTools/Concurrency/RTOS/Task.h"
-#include "AudioTools/Concurrency/RTOS/MutexRTOS.h"
+// Generic dispatcher: picks RTOS.h (ESP32), Desktop.h (USE_STD_CONCURRENCY,
+// e.g. desktop/CMake builds with IS_DESKTOP), Zephyr.h, RP2040.h or STM32.h
+// as appropriate, instead of hardcoding the ESP32/FreeRTOS headers.
+#include "AudioTools/Concurrency/Concurrency.h"
 
 namespace arduino_aoo {
+
+#if defined(USE_STD_CONCURRENCY)
+// arduino-audio-tools defines generic `Mutex`/`MutexRecursiveRTOS` aliases
+// for ESP32 (RTOS/MutexRTOS.h), Zephyr and RP2040, but not for the desktop
+// (USE_STD_CONCURRENCY) path -- Mutex.h only exposes the raw StdMutex /
+// StdRecursiveMutex names there. Fill in the same aliases locally so this
+// file doesn't need platform-specific code below.
+using Mutex = StdMutex;
+using MutexRecursiveRTOS = StdRecursiveMutex;
+#endif
 
 /**
  * @brief AOOReceiver that processes UDP messages in a separate FreeRTOS task.
@@ -11,9 +23,19 @@ namespace arduino_aoo {
  * On ESP32's dual-core architecture this eliminates packet loss by running
  * message reception on one core while audio decoding/output runs on the other.
  *
- * Synchronization is fine-grained: a mutex protects only the individual
- * buffer write (storeEncodedData) and read (IndexedRingBufferStreamView)
- * operations, not the entire processMessages() or readBytes() calls.
+ * AOOReceiver itself has no concurrency and stays lock-free; all
+ * synchronization needed for that split lives here, since this is the only
+ * class where two threads actually touch shared state:
+ *  - `mutex` guards each source's encoded buffer (written by the receive
+ *    task, read by the audio-pulling thread).
+ *  - `sources_mutex` (recursive, since AOOReceiver's sources-touching
+ *    methods call into each other, e.g. onStart() calls setAudioInfo())
+ *    guards the sources list and mixer: the receive task mutates them via
+ *    processMessages() (new/stopped streams) while the audio-pulling thread
+ *    reads them in readBytes()/available() and mutates them in
+ *    postProcessing() (stale/poor-quality source removal). Every override
+ *    below that touches sources/mixer takes this lock itself, so it stays
+ *    correct even if called through a base AOOReceiver&/AOOReceiver*.
  *
  * @ingroup aoo
  * @author Phil Schatzmann
@@ -56,6 +78,8 @@ class AOOReceiverTask : public AOOReceiver {
 
   /// Stops the receive task and releases all resources
   void end() {
+    // Stop the task first: once it's joined, nothing else touches sources
+    // concurrently, so AOOReceiver::end() doesn't need the lock here.
     task.end();
     task.remove();
     AOOReceiver::end();
@@ -63,8 +87,10 @@ class AOOReceiverTask : public AOOReceiver {
 
   /// readBytes does NOT process messages — the task handles that
   size_t readBytes(uint8_t *data, size_t len) override {
-    if (!is_active || sources.empty()) return 0;
+    if (!is_active) return 0;
     postProcessing();
+    LockGuard lock(sources_mutex);
+    if (sources.empty()) return 0;
     if (sources.size() == 1) {
       return sources[0]->readBytes(data, len);
     }
@@ -74,15 +100,39 @@ class AOOReceiverTask : public AOOReceiver {
   /// available does NOT process messages — the task handles that
   int available() override {
     if (!is_active) return 0;
+    LockGuard lock(sources_mutex);
+    if (sources.empty()) return 0;
     if (sources.size() == 1) {
       return sources[0]->available();
     }
     return mixer.available();
   }
 
+  /// Defines the output audio info; locked since this can be called
+  /// directly by the audio framework (e.g. on a format change) from the
+  /// audio thread, concurrently with the receive task's own internal call
+  /// via onStart().
+  void setAudioInfo(AudioInfo info) override {
+    LockGuard lock(sources_mutex);
+    AOOReceiver::setAudioInfo(info);
+  }
+
+  /// Returns the total number of buffer underruns across all sources
+  uint32_t xrunCount() override {
+    LockGuard lock(sources_mutex);
+    return AOOReceiver::xrunCount();
+  }
+
+  /// Resets the xrun counters for all sources
+  void resetXrunCount() override {
+    LockGuard lock(sources_mutex);
+    AOOReceiver::resetXrunCount();
+  }
+
  protected:
   Task task;
-  Mutex mutex;
+  Mutex mutex;                        // guards each source's encoded buffer
+  MutexRecursiveRTOS sources_mutex;   // guards the sources list and mixer
   int task_stack_size = 4096;
   int task_priority = 1;
   int task_core = 0;
@@ -99,7 +149,24 @@ class AOOReceiverTask : public AOOReceiver {
     }
   }
 
-  /// Override to set mutex on newly created sources
+  /// Process incoming messages; locked for the whole dispatch since
+  /// onStart()/onData()/onStop() mutate the sources list and mixer.
+  bool processMessages() {
+    LockGuard lock(sources_mutex);
+    return AOOReceiver::processMessages();
+  }
+
+  /// Sends resend requests, adjusts resamplers, removes stale sources;
+  /// locked since it mutates/iterates the sources list and mixer.
+  void postProcessing() {
+    LockGuard lock(sources_mutex);
+    AOOReceiver::postProcessing();
+  }
+
+  /// Override to set mutex on newly created sources. No lock of its own
+  /// needed: only reachable via processMessages() above, which already
+  /// holds sources_mutex (recursive, so the nested setAudioInfo() call
+  /// AOOReceiver::onStart() makes internally is also safe).
   bool onStart(OSCData &osc) override {
     bool result = AOOReceiver::onStart(osc);
     if (result) setMutexOnSources();

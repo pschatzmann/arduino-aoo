@@ -25,7 +25,7 @@
 #include "AudioTools.h"
 #include "aoo/AOOProtocol.h"
 
-#if defined(ESP32) || defined(USE_FREERTOS)
+#if defined(ESP32) || defined(USE_FREERTOS) || defined(USE_CPP_TASK)
 #include "AOOReceiverTask.h"
 #endif
 

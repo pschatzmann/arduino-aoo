@@ -43,6 +43,7 @@ The build produces the following executables:
 |--------|----------|-------------|
 | `aoo-sender` | `examples/aoo-sender/` | Sends audio over UDP with Opus encoding |
 | `aoo-receiver` | `examples/aoo-receiver/` | Receives and plays audio using miniaudio |
+| `aoo-receiver-task` | `examples/aoo-receiver-task/` | Same as aoo-receiver, using AOOReceiverTask (message processing on its own task/thread) |
 | `protocol` | `examples/tests/protocols/` | Protocol message tests |
 | `log-messages` | `examples/tests/log-messages/` | Logging tests |
 | `loopback` | `examples/tests/loopback/` | Loopback tests |
