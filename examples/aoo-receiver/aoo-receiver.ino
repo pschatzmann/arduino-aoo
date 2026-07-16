@@ -52,12 +52,11 @@ void setup() {
   // register decoders
   aoo_receiver.addDecoder("opus", createOpusDecoder);
 
-  // --- Simple: start with no config (auto-detect from first message) ---
+  // --- Set the output format and start; uncomment below to tune further ---
   auto cfg = aoo_receiver.defaultConfig();
   // Define the audio format to be used for the output (I2S)
   cfg.copyFrom(info);
 
-  //
   // Buffer depth for encoded segments (also serves as jitter buffer)
   // cfg.buffer_depth = 10;
 
@@ -70,7 +69,7 @@ void setup() {
   // Tune packet recovery timing
   // cfg.recovery_wait_ms = 30;
   // cfg.recovery_max_requests = 5;
-  //
+
   aoo_receiver.begin(cfg);
 
   Serial.println("started...");

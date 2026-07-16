@@ -128,11 +128,9 @@ class IndexedRingBufferStreamView : public AudioStream {
       int half = p_buffer->size() / 2;
       if (segments_received >= half) {
         is_primed = true;
-        if (read_seq < 0) {
-          int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
-          if (oldest < 0) oldest = 0;
-          read_seq = oldest - 1;
-        }
+        // Don't seek read_seq here: readBytes() lazily jumps to the oldest
+        // available segment on the first gap it hits, which also covers the
+        // case where read_seq is still -1 (nothing read yet).
         LOGI("Buffer primed after %d segments (half of %d), read from seq %d",
              segments_received, (int)p_buffer->size(), (int)(read_seq + 1));
       }
@@ -146,8 +144,6 @@ class IndexedRingBufferStreamView : public AudioStream {
   int available() override {
     if (p_buffer == nullptr || !is_primed) return 0;
     LockGuard lock(p_mutex);
-    catchUpReadSeq();
-    if (read_seq < 0) return 0;
     auto* entry = p_buffer->get(read_seq + 1);
     if (entry != nullptr && entry->active) {
       int remaining = entry->available() - read_offset;
@@ -228,20 +224,6 @@ class IndexedRingBufferStreamView : public AudioStream {
   size_t write(const uint8_t* data, size_t len) override { return 0; }
 
  protected:
-  /// Jumps read_seq forward when the reader has fallen behind the buffer.
-  /// Must be called with the mutex held.
-  void catchUpReadSeq() {
-    if (max_write_seq >= 0 && p_buffer != nullptr && read_seq >= 0) {
-      int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
-      if (oldest < 0) oldest = 0;
-      if (read_seq + 1 < oldest) {
-        LOGD("Reader catch-up: seq %d -> %d", (int)(read_seq + 1), (int)oldest);
-        read_seq = oldest - 1;
-        read_offset = 0;
-      }
-    }
-  }
-
   IndexedRingBuffer<SingleBuffer<uint8_t>>* p_buffer = nullptr;
   MutexBase* p_mutex = nullptr;
   int32_t read_seq = -1;
