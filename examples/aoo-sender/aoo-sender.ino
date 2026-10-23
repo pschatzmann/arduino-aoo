@@ -16,7 +16,7 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 const char *ssid = "ssid";
 const char *password = "password";
 const int udpPort = 9999;
-AudioInfo info(22000, 1, 16);
+AudioInfo info(48000, 1, 16);
 SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
 Throttle throttled_in(sound);
