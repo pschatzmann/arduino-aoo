@@ -7,16 +7,6 @@
 
 namespace arduino_aoo {
 
-#if defined(USE_STD_CONCURRENCY)
-// arduino-audio-tools defines generic `Mutex`/`MutexRecursiveRTOS` aliases
-// for ESP32 (RTOS/MutexRTOS.h), Zephyr and RP2040, but not for the desktop
-// (USE_STD_CONCURRENCY) path -- Mutex.h only exposes the raw StdMutex /
-// StdRecursiveMutex names there. Fill in the same aliases locally so this
-// file doesn't need platform-specific code below.
-using Mutex = StdMutex;
-using MutexRecursiveRTOS = StdRecursiveMutex;
-#endif
-
 /**
  * @brief AOOReceiver that processes UDP messages in a separate FreeRTOS task.
  *
