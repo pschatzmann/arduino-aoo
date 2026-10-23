@@ -1,4 +1,4 @@
-# AoO - Audio Over OSC
+# AoO - Audio Over OSC for Arduino
 
 "Audio over OSC" aka AoO is a message-based real-time audio streaming system using Open Sound Control as its wire format. It sends audio from arbitrary senders to arbitrary receivers on demand.
 
@@ -72,7 +72,9 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 
 ## Installation in Arduino
 
-Clone the libraries into your Arduino libraries folder: 
+Download as ZIP and use Arduino IDE: Sketch -> Include Library -> Add .ZIP Library.
+
+Or clone the libraries into your Arduino libraries folder: 
 
 ```bash
 cd ~/Documents/Arduino/libraries
@@ -80,4 +82,3 @@ git clone https://github.com/pschatzmann/arduino-audio-tools.git
 git clone https://github.com/pschatzmann/arduino-aoo.git
 ```
 
-Or download as ZIP and use Arduino IDE: Sketch -> Include Library -> Add .ZIP Library.
