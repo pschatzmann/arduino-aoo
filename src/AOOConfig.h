@@ -84,8 +84,18 @@ struct AOOReceiverConfig : public AudioInfo {
   /// Memory per source: buffer_depth * encoded_segment_size
   /// (e.g. 10 * ~100 bytes for Opus, 10 * ~960 bytes for PCM mono).
   int buffer_depth = 10;
-  /// Enable adaptive resampling to compensate for source/sink clock drift
+  /// Enable adaptive resampling to compensate for source/sink clock drift:
+  /// the playback rate is adjusted so that the buffer stays half full
   bool adaptive_resampling = true;
+  /// Adaptive resampling: interval in ms in which the playback rate is
+  /// adjusted
+  int resample_update_ms = 1000;
+  /// Adaptive resampling: maximum deviation from the nominal sample rate in
+  /// percent (clock drift is usually far below 0.1%)
+  float max_resample_percent = 0.5f;
+  /// The output format (sample rate, channels) is defined by this config.
+  /// Set to true to use the format of the first source instead.
+  bool output_follows_source = false;
   /// Wait time in ms before requesting a resend for missing packets.
   /// Should be less than half the priming delay so the resent packet
   /// arrives before the read pointer reaches the gap.
@@ -96,13 +106,15 @@ struct AOOReceiverConfig : public AudioInfo {
   /// avoid flooding the network — the min_quality_percent gate
   /// already prevents resends during bad periods.
   int recovery_max_requests = 1;
-  /// Only send resend requests when quality is above this threshold.
+  /// Only send resend requests when the recent quality (last 100 blocks) is
+  /// above this threshold.
   /// At 98%: with 100 blocks/sec, allows resends for up to 2 gaps/sec.
   /// Below this threshold resends are suppressed to avoid making
   /// congestion worse.
   float min_quality_percent = 98.0f;
-  /// Remove sources below this quality percentage. At 50%: a source
-  /// losing more than half its packets is dropped from the mixer.
+  /// Remove sources whose recent quality (last 100 blocks) is below this
+  /// percentage. At 50%: a source losing more than half its packets is
+  /// dropped from the mixer.
   float min_source_quality = 50.0f;
   /// Auto-remove sources that haven't sent data for this many ms; 0 = disabled
   int stream_timeout_ms = 5000;

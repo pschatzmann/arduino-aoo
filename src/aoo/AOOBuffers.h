@@ -75,9 +75,13 @@ class IndexedRingBuffer {
     return e->writeArray(data, len);
   }
 
-  /// Clears all entries
+  /// Clears all entries: empty slots are inactive and match no sequence id
   void reset() {
-    for (auto& e : entries_) e.clear();
+    for (auto& e : entries_) {
+      e.clear();
+      e.active = false;
+      e.id = INT32_MIN;
+    }
   }
 
   /// Returns the number of entries with active data

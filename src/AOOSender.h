@@ -84,7 +84,6 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   bool begin() override {
     total_bytes_sent = 0;
     cfg.redundancy = cfg.redundancy > 0 ? cfg.redundancy : 1;
-    delay(500);
     if (p_encoder == nullptr) {
       LOGE("Encoder not set");
       return false;
@@ -103,10 +102,12 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
       LOGW("No sink targets configured, defaulting to sink_id=1");
     }
 
-    // assign ramdom number to stream_id
+    // assign random number to stream_id: random(min, max) can not cover the
+    // full int32 range where long is 32 bits, so we combine two 16 bit values
     if (stream_id == 0) {
-      randomSeed(millis());
-      stream_id = random(-2147483648, 2147483647);
+      randomSeed(micros());
+      uint32_t value = ((uint32_t)random(0x10000) << 16) | random(0x10000);
+      stream_id = value == 0 ? 1 : (int32_t)value;
     }
 
     // setup resend buffer
@@ -125,16 +126,35 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
         stream_id, codecStr(), p_encoder->samplesPerFrame(), cfg.redundancy,
         cfg.codec_delay_samples);
 
-    if (!aoo_send_start()) {
-      LOGE("Failed to send format information");
-      return false;
+    // The /start message announces the block size: if the encoder does not
+    // define it, it is the size of the first write, so /start is sent with
+    // the first block
+    start_sent = false;
+    if (p_encoder->samplesPerFrame() > 0) {
+      if (!aoo_send_start()) {
+        LOGE("Failed to send format information");
+        return false;
+      }
+      start_sent = true;
     }
+    is_streaming = true;
 
     return AudioOutput::begin();
   }
 
-  /// Ends the processing
+  /// Ends the processing: informs the sinks that the stream has stopped
   void end() {
+    if (is_streaming) {
+      is_streaming = false;
+      forEachSink([&](int sid) {
+        AOOStopSink stop;
+        stop.source_id = cfg.id;
+        stop.sink_id = sid;
+        stop.stream_id = stream_id;
+        stop.last_seq = seq_no - 1;
+        return aoo_send_message(stop);
+      });
+    }
     if (p_encoder != nullptr) p_encoder->end();
     AudioOutput::end();
   }
@@ -162,7 +182,8 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   bool receive() {
     aoo_receive();
 
-    if (cfg.sink_targets.empty()) return true;
+    // no pings before the sinks know the stream
+    if (cfg.sink_targets.empty() || !start_sent) return true;
 
     uint64_t now = millis();
     if (now < ping_timeout) return true;
@@ -172,7 +193,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
       AOOPingSink ping;
       ping.source_id = cfg.id;
       ping.sink_id = sid;
-      ping.send_time = micros();
+      ping.send_time = aoo_ntp_now();
       return aoo_send_message(ping);
     });
   }
@@ -188,6 +209,8 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   int32_t stream_id = 0;
   int32_t seq_no = 0;
   int32_t block_size = 1024;
+  bool start_sent = false;
+  bool is_streaming = false;
   int32_t codec_ext_data = 0;
   size_t total_bytes_sent = 0;
   uint64_t ping_timeout = 0;
@@ -248,8 +271,11 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     }
   }
 
-  /// Send an AOO message, prepending a length prefix if configured
+  /// Send an AOO message to the current remote address
   bool aoo_send_message(AOOMessage& msg) { return msg.send(*p_output); }
+
+  /// Send an AOO message to the sink which sent the last received message
+  bool aoo_reply(AOOMessage& msg) { return msg_handler.replyToSender(msg); }
 
   void fillStartMessage(AOOStart& aoo_start, int sink) {
     aoo_start.source_id = cfg.id;
@@ -269,6 +295,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
           bytes_per_frame > 0 ? block_size / bytes_per_frame : block_size;
     }
     aoo_start.codec = codecStr();
+    aoo_start.start_time = aoo_ntp_now();
     aoo_start.codec_delay_samples = cfg.codec_delay_samples;
     if (strcmp(codecStr(), "pcm") == 0) {
       codec_ext_data = htonl(pcmBitDepth(audioInfo().bits_per_sample));
@@ -288,36 +315,17 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   }
 
   bool aoo_send_data(const uint8_t* audioData, size_t len) {
-    int32_t num_frames = (len + cfg.max_frame_size - 1) / cfg.max_frame_size;
+    if (!start_sent) {
+      start_sent = true;
+      aoo_send_start();
+    }
     int32_t current_seq = seq_no++;
-    uint64_t ts = micros();
+    uint64_t ts = aoo_ntp_now();
 
     bool ok = forEachSink([&](int sid) {
       for (int r = 0; r < cfg.redundancy; r++) {
-        for (int32_t i = 0; i < num_frames; i++) {
-          int32_t offset = i * cfg.max_frame_size;
-          int32_t frame_len =
-              min((int32_t)(len - offset), (int32_t)cfg.max_frame_size);
-
-          AOOData aoo_data;
-          aoo_data.source_id = cfg.id;
-          aoo_data.sink_id = sid;
-          aoo_data.stream_id = stream_id;
-          aoo_data.seq_no = current_seq;
-          aoo_data.timestamp = ts;
-          aoo_data.real_sample_rate = audioInfo().sample_rate;
-          aoo_data.channel_onset = cfg.channel_onset;
-          aoo_data.total_size = len;
-          aoo_data.message_data_size = frame_len;
-          aoo_data.total_number_of_frames = num_frames;
-          aoo_data.frame_idx = i;
-          aoo_data.audio_data.data = (uint8_t*)(audioData + offset);
-          aoo_data.audio_data.len = frame_len;
-
-          total_bytes_sent += frame_len;
-
-          if (!aoo_send_message(aoo_data)) return false;
-        }
+        if (!aoo_send_block(sid, current_seq, audioData, len, ts, false))
+          return false;
       }
       return true;
     });
@@ -325,6 +333,42 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     size_t written = aoo_out_buffer.write(current_seq, audioData, len);
     LOGD("AOOSender: wrote %d bytes of %d to out buffer", (int)written, (int)len);
     return ok;
+  }
+
+  /// Sends a block as one or more /data messages of at most max_frame_size
+  /// bytes; all frames except the last one have the size max_frame_size.
+  /// With reply = true the messages go to the sender of the last request.
+  bool aoo_send_block(int32_t sink, int32_t seq, const uint8_t* audioData,
+                      size_t len, uint64_t ts, bool reply) {
+    int32_t num_frames = (len + cfg.max_frame_size - 1) / cfg.max_frame_size;
+    for (int32_t i = 0; i < num_frames; i++) {
+      int32_t offset = i * cfg.max_frame_size;
+      int32_t frame_len =
+          min((int32_t)(len - offset), (int32_t)cfg.max_frame_size);
+
+      AOOData aoo_data;
+      aoo_data.source_id = cfg.id;
+      aoo_data.sink_id = sink;
+      aoo_data.stream_id = stream_id;
+      aoo_data.seq_no = seq;
+      aoo_data.timestamp = ts;
+      aoo_data.real_sample_rate = audioInfo().sample_rate;
+      aoo_data.channel_onset = cfg.channel_onset;
+      aoo_data.total_size = len;
+      aoo_data.message_data_size = frame_len;
+      aoo_data.total_number_of_frames = num_frames;
+      aoo_data.frame_idx = i;
+      aoo_data.audio_data.data = (uint8_t*)(audioData + offset);
+      aoo_data.audio_data.len = frame_len;
+
+      if (reply) {
+        if (!aoo_reply(aoo_data)) return false;
+      } else {
+        total_bytes_sent += frame_len;
+        if (!aoo_send_message(aoo_data)) return false;
+      }
+    }
+    return true;
   }
 
   bool aoo_receive() {
@@ -353,9 +397,11 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     LOGI("Start requested by sink %d", req.sink_id);
     if (!is_active) return false;
     addSinkTarget(req.sink_id);
+    // otherwise /start is sent with the first block
+    if (!start_sent) return true;
     AOOStart aoo_start;
     fillStartMessage(aoo_start, req.sink_id);
-    return aoo_send_message(aoo_start);
+    return aoo_reply(aoo_start);
   }
 
   /// Process invite from a sink — accept by adding to sink_ids, or decline
@@ -372,12 +418,14 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
       decline.source_id = cfg.id;
       decline.sink_id = invite.sink_id;
       decline.stream_id = invite.stream_id;
-      return aoo_send_message(decline);
+      return aoo_reply(decline);
     }
     addSinkTarget(invite.sink_id);
+    // otherwise /start is sent with the first block
+    if (!start_sent) return true;
     AOOStart aoo_start;
     fillStartMessage(aoo_start, invite.sink_id);
-    return aoo_send_message(aoo_start);
+    return aoo_reply(aoo_start);
   }
 
   /// Process uninvite from a sink — stop streaming to it
@@ -394,7 +442,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     stop.sink_id = uninvite.sink_id;
     stop.stream_id = stream_id;
     stop.last_seq = seq_no;
-    aoo_send_message(stop);
+    aoo_reply(stop);
     removeSinkTarget(uninvite.sink_id);
     return true;
   }
@@ -458,24 +506,12 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     return true;
   }
 
-  /// Resend buffered data with the original sequence number to a specific sink
+  /// Resend buffered data with the original sequence number to the sink
+  /// which requested it
   bool aoo_resend_data(int32_t orig_seq, int32_t target_sink,
                        const uint8_t* audioData, size_t len) {
-    AOOData aoo_data;
-    aoo_data.source_id = cfg.id;
-    aoo_data.sink_id = target_sink;
-    aoo_data.stream_id = stream_id;
-    aoo_data.seq_no = orig_seq;
-    aoo_data.timestamp = micros();
-    aoo_data.real_sample_rate = audioInfo().sample_rate;
-    aoo_data.channel_onset = cfg.channel_onset;
-    aoo_data.total_size = len;
-    aoo_data.message_data_size = len;
-    aoo_data.total_number_of_frames = 1;
-    aoo_data.frame_idx = 0;
-    aoo_data.audio_data.data = (uint8_t*)audioData;
-    aoo_data.audio_data.len = len;
-    return aoo_send_message(aoo_data);
+    return aoo_send_block(target_sink, orig_seq, audioData, len,
+                          aoo_ntp_now(), true);
   }
 };
 

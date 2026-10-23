@@ -31,6 +31,11 @@ class BufferStatsTracker {
   void reset() {
     stats_ = {};
     first_seq_ = -1;
+    window_first_ = -1;
+    window_max_ = -1;
+    window_received_ = 0;
+    has_previous_window_ = false;
+    previous_window_quality_ = 100.0f;
   }
 
   /// Sets the mutex for thread-safe access
@@ -42,6 +47,20 @@ class BufferStatsTracker {
     if (first_seq_ < 0) first_seq_ = seq;
     if (stats_.min_seq < 0 || seq < stats_.min_seq) stats_.min_seq = seq;
     if (seq > stats_.max_seq) stats_.max_seq = seq;
+    updateWindow(seq);
+  }
+
+  /// Quality of the recent past: received / expected within the current
+  /// window of kQualityWindow sequence numbers (or the previous window while
+  /// the current one has fewer than kMinQualityWindow entries). Unlike the
+  /// cumulative quality, a loss early in the stream does not keep this value
+  /// low for a long time.
+  float recentQualityPercent() const {
+    int32_t expected = window_max_ - window_first_ + 1;
+    if (window_first_ >= 0 && expected >= kMinQualityWindow) {
+      return (float)window_received_ * 100.0f / expected;
+    }
+    return has_previous_window_ ? previous_window_quality_ : 100.0f;
   }
 
   /// Recomputes statistics from the current buffer state
@@ -78,8 +97,33 @@ class BufferStatsTracker {
   int32_t continuousAvailable() const { return stats_.continuous_available; }
 
  protected:
+  static constexpr int32_t kQualityWindow = 100;
+  static constexpr int32_t kMinQualityWindow = 20;
   BufferStats stats_;
   int32_t first_seq_ = -1;
+  int32_t window_first_ = -1;
+  int32_t window_max_ = -1;
+  int32_t window_received_ = 0;
+  bool has_previous_window_ = false;
+  float previous_window_quality_ = 100.0f;
+
+  void updateWindow(int32_t seq) {
+    if (window_first_ < 0) {
+      window_first_ = seq;
+      window_max_ = seq - 1;
+    }
+    if (seq < window_first_) return;  // belongs to a previous window
+    window_received_++;
+    if (seq > window_max_) window_max_ = seq;
+    int32_t expected = window_max_ - window_first_ + 1;
+    if (expected >= kQualityWindow) {
+      previous_window_quality_ = (float)window_received_ * 100.0f / expected;
+      has_previous_window_ = true;
+      window_first_ = window_max_ + 1;
+      window_max_ = window_first_ - 1;
+      window_received_ = 0;
+    }
+  }
   MutexBase* p_mutex = nullptr;
 };
 
@@ -110,6 +154,7 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Resets the read position to the given sequence number
   void setStartSeq(int32_t seq) {
     read_seq = seq;
+    min_write_seq = -1;
     max_write_seq = -1;
     read_offset = 0;
     segments_received = 0;
@@ -119,9 +164,30 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Returns the current read sequence number
   int32_t currentSeq() const { return read_seq; }
 
+  /// Number of received segments which have not been read yet (incl. gaps)
+  int32_t bufferedSegments() const {
+    if (max_write_seq < 0) return 0;
+    int32_t result = max_write_seq - startSeq();
+    return result > 0 ? result : 0;
+  }
+
+  /// True if a segment with this seq should be stored: it must not have been
+  /// read already, must not be older than the buffer window (it would
+  /// overwrite a newer segment) and must not be buffered already (duplicate)
+  bool acceptsSegment(int32_t seq) const {
+    if (p_buffer == nullptr || p_buffer->empty()) return false;
+    if (seq <= read_seq) return false;
+    if (max_write_seq >= 0 &&
+        seq <= max_write_seq - (int32_t)p_buffer->size())
+      return false;
+    const auto* entry = p_buffer->get(seq);
+    return entry == nullptr || !entry->active;
+  }
+
   /// Call when a new segment is stored in the buffer (locks if mutex set)
   void notifySegmentReceived(int32_t seq) {
     LockGuard lock(p_mutex);
+    if (min_write_seq < 0 || seq < min_write_seq) min_write_seq = seq;
     if (seq > max_write_seq) max_write_seq = seq;
     segments_received++;
     if (!is_primed && p_buffer != nullptr) {
@@ -144,11 +210,14 @@ class IndexedRingBufferStreamView : public AudioStream {
   int available() override {
     if (p_buffer == nullptr || !is_primed) return 0;
     LockGuard lock(p_mutex);
-    auto* entry = p_buffer->get(read_seq + 1);
+    int32_t next_seq = startSeq() + 1;
+    auto* entry = p_buffer->get(next_seq);
     if (entry != nullptr && entry->active) {
       int remaining = entry->available() - read_offset;
       return remaining > 0 ? remaining : 0;
     }
+    // Underrun: the next segment has not been received yet
+    if (next_seq > max_write_seq) return 0;
     // Gap: report silence available so downstream doesn't stall
     return last_segment_size > 0 ? last_segment_size : DEFAULT_BUFFER_SIZE;
   }
@@ -159,12 +228,15 @@ class IndexedRingBufferStreamView : public AudioStream {
     if (!is_primed) return 0;
 
     LockGuard lock(p_mutex);
+    read_seq = startSeq();
     size_t total_read = 0;
     while (total_read < len) {
       int32_t next_seq = read_seq + 1;
       auto* entry = p_buffer->get(next_seq);
 
       if (entry == nullptr || !entry->active) {
+        // Underrun: wait for the segment instead of skipping it
+        if (next_seq > max_write_seq) break;
         // If reader has fallen behind the buffer, jump to oldest available
         if (max_write_seq >= 0) {
           int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
@@ -224,9 +296,16 @@ class IndexedRingBufferStreamView : public AudioStream {
   size_t write(const uint8_t* data, size_t len) override { return 0; }
 
  protected:
+  /// Before the first read we start with the oldest received segment
+  int32_t startSeq() const {
+    if (read_seq < 0 && min_write_seq >= 0) return min_write_seq - 1;
+    return read_seq;
+  }
+
   IndexedRingBuffer<SingleBuffer<uint8_t>>* p_buffer = nullptr;
   MutexBase* p_mutex = nullptr;
   int32_t read_seq = -1;
+  int32_t min_write_seq = -1;
   int32_t max_write_seq = -1;
   size_t read_offset = 0;
   int segments_received = 0;

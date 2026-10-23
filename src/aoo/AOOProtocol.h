@@ -64,7 +64,7 @@ struct AOOStart : public AOOMessage {
     LOGI("- format_id=%d, channels=%d", format_id, channels);
     LOGI("- sample_rate=%d, block_size=%d", sample_rate, block_size);
     LOGI("- codec=%s", codec);
-    LOGI("- start_time=%lu", start_time);
+    LOGI("- start_time=%llu", (unsigned long long)start_time);
     LOGI("- reblock_resample_latency_samples=%d",
          reblock_resample_latency_samples);
     LOGI("- codec_delay_samples=%d", codec_delay_samples);
@@ -428,7 +428,7 @@ struct AOOData : public AOOMessage {
   void logData() override {
     LOGI("AOOData: source_id=%d, sink_id=%d, stream_id=%d", source_id, sink_id,
          stream_id);
-    LOGI("- seq_no=%d, timestamp=%lu", seq_no, timestamp);
+    LOGI("- seq_no=%d, timestamp=%llu", seq_no, (unsigned long long)timestamp);
     LOGI("- real_sample_rate=%f, channel_onset=%d", real_sample_rate,
          channel_onset);
     LOGI("- total_size=%d, message_data_size=%d", total_size,
@@ -631,8 +631,8 @@ struct AOOPingSink : public AOOMessage {
 
   /// Logs the ping message fields
   void logData() override {
-    LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu", source_id, sink_id,
-         send_time);
+    LOGI("AOOPing: source_id=%d, sink_id=%d, t1=%llu", source_id, sink_id,
+         (unsigned long long)send_time);
   }
 
   /// Sends the ping message to the stream
@@ -706,8 +706,8 @@ struct AOOPingSource : public AOOMessage {
 
   /// Logs the ping message fields
   void logData() override {
-    LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu", source_id, sink_id,
-         send_time);
+    LOGI("AOOPing: source_id=%d, sink_id=%d, t1=%llu", source_id, sink_id,
+         (unsigned long long)send_time);
   }
 
   /// Sends the ping message to the stream
@@ -783,8 +783,9 @@ struct AOOPongSink : public AOOMessage {
 
   /// Logs the pong message fields
   void logData() override {
-    LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu, t2=%lu, t3=%lu",
-         source_id, sink_id, t1, t2, t3);
+    LOGI("AOOPong: source_id=%d, sink_id=%d, t1=%llu, t2=%llu, t3=%llu",
+         source_id, sink_id, (unsigned long long)t1, (unsigned long long)t2,
+         (unsigned long long)t3);
   }
 
   /// Sends the pong message to the stream
@@ -839,7 +840,8 @@ struct AOOPongSink : public AOOMessage {
     t2 = data.readTime();
     t3 = data.readTime();
 
-    LOGI("AOOPongSink: %ld %ld %ld", t1, t2, t3);
+    LOGD("AOOPongSink: %llu %llu %llu", (unsigned long long)t1,
+         (unsigned long long)t2, (unsigned long long)t3);
 
     // Reply to ping
     return true;
@@ -867,8 +869,9 @@ struct AOOPongSource : public AOOMessage {
 
   /// Logs the pong message fields
   void logData() override {
-    LOGI("AOOPongSource: source_id=%d, sink_id=%d, t1=%lu, t2=%lu, t3=%lu",
-         source_id, sink_id, t1, t2, t3);
+    LOGI("AOOPong: source_id=%d, sink_id=%d, t1=%llu, t2=%llu, t3=%llu",
+         source_id, sink_id, (unsigned long long)t1, (unsigned long long)t2,
+         (unsigned long long)t3);
   }
 
   /// Sends the pong message to the stream
@@ -924,7 +927,8 @@ struct AOOPongSource : public AOOMessage {
     t2 = data.readTime();
     t3 = data.readTime();
 
-    LOGI("AOOPongSource: %ld %ld %ld", t1, t2, t3);
+    LOGD("AOOPongSource: %llu %llu %llu", (unsigned long long)t1,
+         (unsigned long long)t2, (unsigned long long)t3);
 
     // Reply to ping
     return true;

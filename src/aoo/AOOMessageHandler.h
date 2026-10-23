@@ -74,19 +74,24 @@ class AOOMessageHandler {
   /// Access the clock synchronization state (updated from pong messages)
   AOOClockSync& clockSync() { return clock_sync; }
 
-  /// Process all available messages. Returns number processed.
+  /// Process all available messages. Messages which are ignored (e.g. for
+  /// another id) or invalid do not stop the processing of the following
+  /// ones. Returns the number of messages that were handled.
   int processMessages() {
     int count = 0;
+    bool handled = false;
     while (p_io != nullptr && p_io->available() > 0) {
-      if (!processOneMessage()) break;
-      count++;
+      if (!processOneMessage(handled)) break;
+      if (handled) count++;
       yield();  // Allow other tasks to run in cooperative multitasking environments
     }
     return count;
   }
 
-  /// Process a single message from the stream. Returns true if processed.
-  bool processOneMessage() {
+  /// Reads and processes a single message from the stream. Returns false if
+  /// no message could be read; handled reports if it was processed.
+  bool processOneMessage(bool& handled) {
+    handled = false;
     if (p_io == nullptr) return false;
 
     size_t avail = p_io->available();
@@ -98,9 +103,11 @@ class AOOMessageHandler {
     if (read == 0) return false;
 
     if (aoo_is_binary(in_buffer.data(), read)) {
-      return processBinaryMessage(in_buffer.data(), read);
+      handled = processBinaryMessage(in_buffer.data(), read);
+    } else {
+      handled = processOSCMessage(in_buffer.data(), read);
     }
-    return processOSCMessage(in_buffer.data(), read);
+    return true;
   }
 
   struct Stats {
@@ -125,6 +132,19 @@ class AOOMessageHandler {
   void resetStats() { stats_ = {}; }
   /// Returns the underlying transport stream
   AOOStream* stream() { return p_io; }
+
+  /// Sends the message to the sender of the last received message and
+  /// restores the original remote address afterwards
+  bool replyToSender(AOOMessage& msg) {
+    IPAddress ip = p_io->senderIP();
+    if ((uint32_t)ip == 0) return msg.send(*p_io);
+    IPAddress old_ip = p_io->remoteIP();
+    uint16_t old_port = p_io->remotePort();
+    p_io->setRemote(ip, p_io->senderPort());
+    bool result = msg.send(*p_io);
+    p_io->setRemote(old_ip, old_port);
+    return result;
+  }
 
  protected:
   AOOStream* p_io = nullptr;
@@ -164,8 +184,8 @@ class AOOMessageHandler {
       pong.source_id = ping.source_id;
       pong.sink_id = aoo_id;
       pong.t1 = ping.send_time;
-      pong.t2 = micros();
-      pong.t3 = micros();
+      pong.t2 = aoo_ntp_now();
+      pong.t3 = aoo_ntp_now();
       retargetToSender();
       return pong.send(*p_io);
     } else {
@@ -179,11 +199,12 @@ class AOOMessageHandler {
       pong.source_id = aoo_id;
       pong.sink_id = ping.sink_id;
       pong.t1 = ping.send_time;
-      pong.t2 = micros();
-      pong.t3 = micros();
-      return pong.send(*p_io);
+      pong.t2 = aoo_ntp_now();
+      pong.t3 = aoo_ntp_now();
+      return replyToSender(pong);
     }
   }
+
 
   bool handlePong(OSCData& osc) {
     LOGD("Handling pong");
@@ -194,7 +215,7 @@ class AOOMessageHandler {
         LOGE("Failed to parse pong");
         return false;
       }
-      uint64_t t4 = micros();
+      uint64_t t4 = aoo_ntp_now();
       clock_sync.update(pong.t1, pong.t2, pong.t3, t4);
     } else {
       // We are a source, received pong from sink
@@ -203,12 +224,12 @@ class AOOMessageHandler {
         LOGE("Failed to parse pong");
         return false;
       }
-      uint64_t t4 = micros();
+      uint64_t t4 = aoo_ntp_now();
       clock_sync.update(pong.t1, pong.t2, pong.t3, t4);
     }
-    LOGI("Pong: rtt=%lu us, offset=%ld us",
+    LOGI("Pong: rtt=%lu us, offset=%lld us",
          (unsigned long)clock_sync.rttMicros(),
-         (long)clock_sync.offsetMicros());
+         (long long)clock_sync.offsetMicros());
     return true;
   }
 
@@ -233,7 +254,7 @@ class AOOMessageHandler {
     }
 
     int msg_id = aoo_data.sink_id;
-    if (aoo_id == 0) {
+    if (aoo_id == 0 && msg_id > 0) {
       aoo_id = msg_id;
       LOGI("Auto-assigned ID from binary: %d", aoo_id);
     }
@@ -262,7 +283,11 @@ class AOOMessageHandler {
 
     const char* address = osc.getAddress();
     int id = getIdFromAddress(address);
-    if (aoo_id == 0) {
+    if (id < 0) {
+      LOGD("OSC message ignored (not for %s): %s", address_prefix, address);
+      return false;
+    }
+    if (aoo_id == 0 && id > 0) {
       aoo_id = id;
       LOGI("Auto-assigned ID from OSC: %d", aoo_id);
     }
@@ -300,12 +325,12 @@ class AOOMessageHandler {
       return p_listener->onStop(osc);
     } else if (strstr(address, "/data") != nullptr) {
       stats_.osc_data++;
+      // a sink receives audio data, a source receives resend requests
+      if (!isSinkAddress()) return p_listener->onResendRequest(osc);
       AOOData aoo_data;
       aoo_data.sink_id = aoo_id;
-      if (aoo_data.parse(osc.data(), osc.size())) {
-        return p_listener->onData(aoo_data);
-      }
-      return p_listener->onResendRequest(osc);
+      if (!aoo_data.parse(osc.data(), osc.size())) return false;
+      return p_listener->onData(aoo_data);
     } else {
       stats_.osc_other++;
       LOGW("Unsupported address: %s", address);

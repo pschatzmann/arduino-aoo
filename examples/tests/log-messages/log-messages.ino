@@ -2,6 +2,7 @@
  *   @brief Receive OSC messages over UDP and print them to the serial console.
  */
 #include "AOO.h"
+#include "WiFi.h"
 
 const int udpPort = 9999;
 const char *ssid = "your-ssid";

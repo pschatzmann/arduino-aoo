@@ -587,6 +587,9 @@ void setup() {
   testBinDataTooShort();
 
   Serial.println("All tests completed");
+#if defined(IS_DESKTOP)
+  exit(0);  // a failed assert() aborts with a non-zero status
+#endif
 }
 
 void loop() {}

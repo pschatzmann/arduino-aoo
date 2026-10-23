@@ -31,6 +31,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   AOOReceiver() {
     addDecoder("pcm",
                []() { return (AudioDecoder *)new DecoderNetworkFormat(); });
+    msg_handler.setListener(*this);
+    msg_handler.setAddressPrefix("/aoo/sink/");
   }
 
   /// @param id unique sink identifier used in AOO addressing
@@ -38,8 +40,6 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   AOOReceiver(int id, AOOStream &io) : AOOReceiver() {
     aoo_cfg.id = id;
     setStream(io);
-    msg_handler.setListener(*this);
-    msg_handler.setAddressPrefix("/aoo/sink/");
     msg_handler.setId(id);
   }
 
@@ -58,8 +58,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     codec_factory.addDecoder(id, cb);
   }
 
-  /// Get the current sink ID
-  int id() { return aoo_cfg.id; }
+  /// Get the current sink ID (with id 0 it is assigned from the first message)
+  int id() { return msg_handler.getId(); }
 
   /// Provides a default configuration pre-filled with current values
   AOOReceiverConfig defaultConfig() { return aoo_cfg; }
@@ -84,6 +84,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       LOGE("Stream begin failed");
       return false;
     }
+    msg_handler.setId(aoo_cfg.id);
     mixer.begin(aoo_cfg);
     mixer.setRetryCount(0);              // don't retry on empty sources
     mixer.setLimitToAvailableData(false); // don't stall on slow sources
@@ -117,16 +118,14 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
   /// Pull decoded, mixed audio data
   size_t readBytes(uint8_t *data, size_t len) override {
-    if (!is_active || sources.empty()) return 0;
+    if (!is_active) return 0;
 
-    // Process incoming network messages (stores encoded data), unless
+    // Process incoming network messages and do the post processing, unless
     // available() already did so for this same StreamCopy cycle.
-    if (!just_processed_messages_) processMessages();
-    just_processed_messages_ = false;
+    if (!just_updated_) update();
+    just_updated_ = false;
 
-    // Post-processing: resend requests, drift adjustment, source management
-    postProcessing();
-
+    if (sources.empty()) return 0;
     if (sources.size() == 1) {
       return sources[0]->readBytes(data, len);
     }
@@ -136,8 +135,11 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   /// Returns the number of bytes available for reading
   int available() override {
     if (!is_active) return 0;
-    processMessages();
-    just_processed_messages_ = true;
+    // the post processing adds primed sources to the mixer, so it must
+    // happen before we can report any data
+    update();
+    just_updated_ = true;
+    if (sources.empty()) return 0;
     if (sources.size() == 1) {
       return sources[0]->available();
     }
@@ -179,6 +181,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     uint32_t assembly_completed = 0;
     uint32_t single_frame = 0;
     uint32_t resend_requests = 0;
+    uint32_t start_requests = 0;
     uint32_t segments_stored = 0;
   };
   /// Returns the receiver data-path statistics
@@ -196,7 +199,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     if (p_io == nullptr) return false;
     AOORequestStart req;
     req.source_id = source_id;
-    req.sink_id = aoo_cfg.id;
+    req.sink_id = id();
     req.version = AOO_VERSION;
     return req.send(*p_io);
   }
@@ -206,7 +209,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     if (p_io == nullptr) return false;
     AOOInvite inv;
     inv.source_id = source_id;
-    inv.sink_id = aoo_cfg.id;
+    inv.sink_id = id();
     inv.stream_id = token;
     return inv.send(*p_io);
   }
@@ -216,7 +219,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     if (p_io == nullptr) return false;
     AOOUninvite uninv;
     uninv.source_id = source_id;
-    uninv.sink_id = aoo_cfg.id;
+    uninv.sink_id = id();
     uninv.stream_id = token;
     return uninv.send(*p_io);
   }
@@ -245,7 +248,15 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   CodecFactory codec_factory;
   std::vector<std::unique_ptr<AOOSourceLine>> sources;
   AOOReceiverConfig aoo_cfg;
-  bool just_processed_messages_ = false;
+  bool just_updated_ = false;
+  /// Minimum time between /start requests to the same source
+  static constexpr uint32_t kStartRequestIntervalMs = 500;
+
+  /// Processes the incoming messages and does the post processing
+  void update() {
+    processMessages();
+    postProcessing();
+  }
 
   /// Find or create a source line
   AOOSourceLine &getSourceLine(int32_t source_id, int32_t sink_id,
@@ -267,8 +278,12 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
                         aoo_cfg.recovery_max_requests);
     }
     sources.push_back(std::move(p));
+    onSourceLineCreated(*sources.back());
     return *sources.back();
   }
+
+  /// Called for each new source line (e.g. to set up locking)
+  virtual void onSourceLineCreated(AOOSourceLine &line) {}
 
   void removeSource(int idx) {
     sources.erase(sources.begin() + idx);
@@ -327,7 +342,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
          tmp.source_audio_info.channels, tmp.source_audio_info.sample_rate,
          tmp.block_size, tmp.format_str.c_str());
 
-    AOOSourceLine &info = getSourceLine(tmp.source_id, aoo_cfg.id, tmp.stream_id);
+    AOOSourceLine &info = getSourceLine(tmp.source_id, id(), tmp.stream_id);
 
     // Clean up existing decoder if this is a duplicate /start
     if (info.hasDecoder()) {
@@ -351,8 +366,11 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       return false;
     }
 
-    // Update output format from source
-    setAudioInfo(info.source_audio_info);
+    // The output format is defined by the configuration: each source is
+    // converted to it. Optionally the first source defines it.
+    if (aoo_cfg.output_follows_source && sources.size() == 1) {
+      setAudioInfo(info.source_audio_info);
+    }
 
     // Set up the pull-based pipeline
     if (!info.begin(aoo_cfg, std::move(p_dec), aoo_cfg.buffer_depth)) {
@@ -409,14 +427,14 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     int32_t frame_idx = aoo_data.frame_idx;
     int32_t total_size = aoo_data.total_size;
 
-    AOOSourceLine &info = getSourceLine(source_id, aoo_cfg.id, stream_id);
+    AOOSourceLine &info = getSourceLine(source_id, id(), stream_id);
     info.sender_ip = p_io->senderIP();
     info.sender_port = p_io->senderPort();
 
     if (!info.hasDecoder()) {
       stats_.no_decoder++;
-      LOGW("No decoder: source=%d sink=%d stream=%d (have %d sources)",
-           source_id, aoo_cfg.id, stream_id, (int)sources.size());
+      LOGD("No decoder: source=%d sink=%d stream=%d (have %d sources)",
+           source_id, id(), stream_id, (int)sources.size());
       // Try to reuse decoder from same source with different stream_id
       for (auto &s : sources) {
         if (s->source_id == source_id && s->hasDecoder()) {
@@ -434,7 +452,14 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
           break;
         }
       }
-      if (!info.hasDecoder()) return false;
+      if (!info.hasDecoder()) {
+        // we missed the /start message (e.g. started after the source or
+        // the stream timed out): ask the source to send it again. Updating
+        // last_data_time lets the line time out if the source never answers.
+        info.last_data_time = millis();
+        requestStartFor(info);
+        return false;
+      }
     }
 
     // Multi-frame reassembly
@@ -452,29 +477,49 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
             (int)total_size, (int)frame_idx, (int)total_frames);
         return false;
       }
+      int32_t frame_len = aoo_data.audio_data.len;
       if (info.assembly_seq != seq) {
         stats_.assembly_started++;
         info.assembly_seq = seq;
         info.assembly_total_frames = total_frames;
         info.assembly_received = 0;
         info.assembly_total_size = total_size;
+        info.assembly_frame_size = 0;
+        info.assembly_done = false;
         info.assembly_buffer.resize(total_size);
+        info.assembly_frames.assign(total_frames, false);
         memset(info.assembly_buffer.data(), 0, total_size);
         LOGD("Assembly: seq=%d frames=%d total=%d", seq, total_frames,
              total_size);
       }
-      int32_t max_per_frame = (total_size + total_frames - 1) / total_frames;
-      int32_t offset = frame_idx * max_per_frame;
-      int32_t copy_len = aoo_data.audio_data.len;
-      if (copy_len > 0 && offset >= 0 &&
-          offset + copy_len <= info.assembly_total_size) {
-        memcpy(info.assembly_buffer.data() + offset, aoo_data.audio_data.data,
-               copy_len);
+      // ignore duplicates (redundancy, resends) and inconsistent frames
+      if (info.assembly_done || total_frames != info.assembly_total_frames ||
+          total_size != info.assembly_total_size ||
+          info.assembly_frames[frame_idx] || frame_len <= 0) {
+        return true;
       }
+      // all frames except the last one have the same size: derive it from
+      // a non-last frame, or from the last frame and the total size
+      int32_t frame_size =
+          frame_idx < total_frames - 1
+              ? frame_len
+              : (total_size - frame_len) / (total_frames - 1);
+      if (info.assembly_frame_size == 0) info.assembly_frame_size = frame_size;
+      int32_t offset = frame_idx * info.assembly_frame_size;
+      if (offset < 0 || offset + frame_len > info.assembly_total_size) {
+        LOGW("Rejecting frame %d of seq %d: offset %d + %d > %d",
+             (int)frame_idx, (int)seq, (int)offset, (int)frame_len,
+             (int)info.assembly_total_size);
+        return false;
+      }
+      memcpy(info.assembly_buffer.data() + offset, aoo_data.audio_data.data,
+             frame_len);
+      info.assembly_frames[frame_idx] = true;
       info.assembly_received++;
       if (info.assembly_received < info.assembly_total_frames) {
         return true;
       }
+      info.assembly_done = true;
       stats_.assembly_completed++;
       if (info.storeEncodedData(seq, info.assembly_buffer.data(),
                                 info.assembly_total_size)) {
@@ -511,7 +556,8 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
       // Conditional resend requests
       if (aoo_cfg.recovery_max_requests > 0 &&
-          p->stats_tracker.qualityPercent() >= aoo_cfg.min_quality_percent) {
+          p->stats_tracker.recentQualityPercent() >=
+              aoo_cfg.min_quality_percent) {
         int32_t seqs[8];
         int n = p->recovery.getResendRequests(seqs, 8);
         for (int i = 0; i < n; i++) {
@@ -521,17 +567,19 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
       // Adaptive resampling via drift estimation
       if (aoo_cfg.adaptive_resampling) {
-        p->updateDrift(aoo_cfg);
+        p->updateDrift(aoo_cfg, aoo_cfg.resample_update_ms,
+                       aoo_cfg.max_resample_percent);
       }
     }
 
     // Remove poor-quality sources
     for (int i = sources.size() - 1; i >= 0; i--) {
       auto &p = sources[i];
-      if (p->stats_tracker.qualityPercent() < aoo_cfg.min_source_quality &&
+      if (p->stats_tracker.recentQualityPercent() <
+              aoo_cfg.min_source_quality &&
           p->stats_tracker.stats().total_expected > 20) {
         LOGW("Removing source %d: quality %.1f%%", p->source_id,
-             p->stats_tracker.qualityPercent());
+             p->stats_tracker.recentQualityPercent());
         removeSource(i);
       }
     }
@@ -557,13 +605,26 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     }
   }
 
+  /// Sends a (rate limited) /start request to the source of the line
+  void requestStartFor(AOOSourceLine &info) {
+    uint32_t now = millis();
+    if (info.last_start_request != 0 &&
+        now - info.last_start_request < kStartRequestIntervalMs)
+      return;
+    info.last_start_request = now == 0 ? 1 : now;
+    stats_.start_requests++;
+    LOGI("Requesting /start from source %d", info.source_id);
+    retargetTo(info.sender_ip, info.sender_port);
+    requestStart(info.source_id);
+  }
+
   bool aooSendRequestData(AOOSourceLine &info, int32_t seq, int32_t frame) {
     stats_.resend_requests++;
     LOGD("Requesting resend seq %d from source %d", seq, info.source_id);
     retargetTo(info.sender_ip, info.sender_port);
     AOOResendData data;
     data.source_id = info.source_id;
-    data.sink_id = aoo_cfg.id;
+    data.sink_id = id();
     data.stream_id = info.stream_id;
     AOOResendData::ResendItem item;
     item.seq = seq;

@@ -97,9 +97,11 @@ class AOOReceiverTask : public AOOReceiver {
     return mixer.readBytes(data, len);
   }
 
-  /// available does NOT process messages — the task handles that
+  /// available does NOT process messages — the task handles that. The post
+  /// processing adds primed sources to the mixer, so it is done here as well.
   int available() override {
     if (!is_active) return 0;
+    postProcessing();
     LockGuard lock(sources_mutex);
     if (sources.empty()) return 0;
     if (sources.size() == 1) {
@@ -163,14 +165,11 @@ class AOOReceiverTask : public AOOReceiver {
     AOOReceiver::postProcessing();
   }
 
-  /// Override to set mutex on newly created sources. No lock of its own
-  /// needed: only reachable via processMessages() above, which already
-  /// holds sources_mutex (recursive, so the nested setAudioInfo() call
-  /// AOOReceiver::onStart() makes internally is also safe).
-  bool onStart(OSCData &osc) override {
-    bool result = AOOReceiver::onStart(osc);
-    if (result) setMutexOnSources();
-    return result;
+  /// Sets the mutex on every new source line, whether it was created by a
+  /// /start or a /data message. No lock of its own needed: only reachable
+  /// via processMessages() above, which already holds sources_mutex.
+  void onSourceLineCreated(AOOSourceLine &line) override {
+    line.setMutex(&mutex);
   }
 };
 

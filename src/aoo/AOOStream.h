@@ -36,6 +36,15 @@ class AOOStream : public Stream {
     Stream::setTimeout(timeoutMs);
   }
 
+  using Stream::readBytes;
+  /// Reads up to len bytes of the current message. Virtual, so that calls
+  /// through an AOOStream* (e.g. from AOOMessageHandler) reach a subclass's
+  /// bulk read: Stream::readBytes() is not virtual in all Arduino cores and
+  /// would read byte by byte via timedRead().
+  virtual size_t readBytes(uint8_t* data, size_t len) {
+    return Stream::readBytes((char*)data, len);
+  }
+
   /// Returns the number of bytes available for reading
   int available() override { return 0; }
   /// Reads a single byte
@@ -75,12 +84,17 @@ class AOOStreamUDP : public AOOStream {
   /// Enables or disables multicast mode
   void setMulticast(bool flag) { is_multicast = flag; }
 
+  /// Defines the local port to listen on; by default this is the remote port
+  /// (which conflicts when sender and receiver run on the same host)
+  void setLocalPort(uint16_t port) { local_port = port; }
+
   /// Starts the UDP socket
   bool begin() override {
+    uint16_t port = local_port != 0 ? local_port : remote_port_ext;
     if (is_multicast) {
-      return udp.beginMulticast(remote_address_ext, remote_port_ext);
+      return udp.beginMulticast(remote_address_ext, port);
     }
-    return udp.begin(remote_port_ext);
+    return udp.begin(port);
   }
 
   /// Stops the UDP socket
@@ -127,14 +141,13 @@ class AOOStreamUDP : public AOOStream {
     return result;
   }
 
-  /// Reads bytes from the current UDP packet
-  size_t readBytes(uint8_t* data, size_t len) {
-    if (available() > 0) {
-      size_t result = udp.readBytes(data, len);
-      yield();
-      return result;
-    }
-    return 0;
+  /// Reads bytes from the current UDP packet with the bulk read of the UDP
+  /// API (Stream::readBytes() reads byte by byte)
+  size_t readBytes(uint8_t* data, size_t len) override {
+    if (available() <= 0) return 0;
+    int result = udp.read(data, len);
+    yield();
+    return result > 0 ? result : 0;
   }
 
   /// Reads a single byte from the current packet
@@ -152,6 +165,7 @@ class AOOStreamUDP : public AOOStream {
  protected:
   UDP_t udp;
   uint16_t remote_port_ext = 0;
+  uint16_t local_port = 0;
   IPAddress remote_address_ext{};
   bool is_multicast = false;
 };
@@ -194,6 +208,11 @@ class AOOStreamSerial : public AOOStream {
 
   /// Returns the number of bytes available for writing
   int availableForWrite() override { return hdlc.availableForWrite(); }
+
+  /// Reads the current frame
+  size_t readBytes(uint8_t* data, size_t len) override {
+    return hdlc.readBytes(data, len);
+  }
 
   /// Reads a single byte from the current frame
   int read() override { return hdlc.read(); }
