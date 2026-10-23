@@ -124,7 +124,7 @@ class AOOReceiverTask : public AOOReceiver {
  protected:
   Task task;
   Mutex mutex;                        // guards each source's encoded buffer
-  MutexRecursiveRTOS sources_mutex;   // guards the sources list and mixer
+  MutexRecursive sources_mutex;   // guards the sources list and mixer
   int task_stack_size = 4096;
   int task_priority = 1;
   int task_core = 0;
