@@ -94,6 +94,7 @@ class AOOStreamUDP : public AOOStream {
     if (is_multicast) {
       return udp.beginMulticast(remote_address_ext, port);
     }
+    LOGI("Listening on port %d", (int)port);
     return udp.begin(port);
   }
 

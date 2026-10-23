@@ -18,7 +18,7 @@
 
 const char* ssid = "SSID";
 const char* password = "password";
-const int udpPort = 9998;
+const int udpPort = 9999;
 AudioInfo info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
 I2SStream i2s;  // or any other e.g. AudioBoardStream i2s(AudioKitEs8388V1);
@@ -34,7 +34,9 @@ AudioDecoder* createOpusDecoder() {
 
 void setup() {
   Serial.begin(115200);
-  AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Info);
+  AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Warning);
+  while(!Serial) delay(10);
+
 
   // Connect to WiFi
   WiFi.begin(ssid, password);

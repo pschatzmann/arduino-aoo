@@ -85,6 +85,7 @@ class AOOMessageHandler {
       if (handled) count++;
       yield();  // Allow other tasks to run in cooperative multitasking environments
     }
+    if (count > 0) LOGI("Processed %d messages (handled %d)", count, handled);
     return count;
   }
 
