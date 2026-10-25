@@ -303,7 +303,7 @@ AudioEncoder *&#160;</td><td class="memItemRight" valign="bottom"><b>p_encoder</
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Audio source for AOO (Audio Over OSC) which is used to send audio data via the indicated output stream (usually a <a class="el" href="classarduino__aoo_1_1AOOStreamUDP.html" title="AOO transport over UDP.">AOOStreamUDP</a>). We provide a simple implementation which is purely based on the AudioTools library w/o any external dependencies. The call to <a class="el" href="#a7597ef706dd1aa590903ce9e095db20a" title="Encodes and sends audio data; also processes incoming ping/resend messages.">write()</a> will send the data to the output stream and process incoming messages (pings, resend and start requests, invitations). If you pause to call <a class="el" href="#a7597ef706dd1aa590903ce9e095db20a" title="Encodes and sends audio data; also processes incoming ping/resend messages.">write()</a>, make sure that you continue to call <a class="el" href="#a562369ec2e4ebdf923646b9b261f0f96">receive()</a> to keep the ping alive. </p>
 <p>By default we transmit PCM data, but you can also use any other encoder. If you decide to use a CopyEncoder to write already encoded data, you need to make sure that the writes are throttled by the decoded data rate, otherwise the sink will run into buffer overflows.</p>
-<p>Blocks which are bigger than max_frame_size are split into several frames. The sent blocks are kept in a buffer (buffer_size blocks) to answer resend requests. The audio can be sent to several sinks (sink_targets); sinks can also add themselves with an invitation or a /start request.</p>
+<p>Blocks which do not fit into max_packet_size are split into several frames. The sent blocks are kept in a buffer (buffer_size blocks) to answer resend requests. The audio can be sent to several sinks (sink_targets); sinks can also add themselves with an invitation or a /start request.</p>
 <dl class="section author"><dt>Author</dt><dd>Phil Schatzmann </dd></dl>
 <dl class="section copyright"><dt>Copyright</dt><dd>GPLv3 </dd></dl>
 </div><a name="doc-constructors" id="doc-constructors"></a><h2 id="header-doc-constructors" class="groupheader">Constructor &amp; Destructor Documentation</h2>
@@ -430,7 +430,7 @@ AudioEncoder *&#160;</td><td class="memItemRight" valign="bottom"><b>p_encoder</
   </tr>
 </table>
 </div><div class="memdoc">
-<p>Sends a block as one or more /data messages of at most max_frame_size bytes; all frames except the last one have the size max_frame_size. With reply = true the messages go to the sender of the last request. </p>
+<p>Sends a block as one or more /data messages of at most max_packet_size bytes; the block is split into frames of (almost) equal size, all frames except the last one have the same size. With reply = true the messages go to the sender of the last request. </p>
 
 </div>
 </div>

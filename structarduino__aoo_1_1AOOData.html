@@ -117,6 +117,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:a716706926b81f57824a90e5bd3852dc6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Logs the data message fields.  <br /></td></tr>
 <tr class="memitem:adfa4b6ef643aece744c3d50d49df925d" id="r_adfa4b6ef643aece744c3d50d49df925d"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#adfa4b6ef643aece744c3d50d49df925d">send</a> (Print &amp;stream) override</td></tr>
 <tr class="memdesc:adfa4b6ef643aece744c3d50d49df925d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sends the data message to the stream.  <br /></td></tr>
+<tr class="memitem:ac9c9fb77c32b9d3738cc15116b88ce2b" id="r_ac9c9fb77c32b9d3738cc15116b88ce2b"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ac9c9fb77c32b9d3738cc15116b88ce2b">headerSize</a> ()</td></tr>
 <tr class="memitem:a747db02d597ba59d800b05b10e6895e6" id="r_a747db02d597ba59d800b05b10e6895e6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a747db02d597ba59d800b05b10e6895e6">parse</a> (uint8_t *bin, size_t len) override</td></tr>
 <tr class="memdesc:a747db02d597ba59d800b05b10e6895e6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Parses the data message from raw data.  <br /></td></tr>
 </table><table class="memberdecls">
@@ -162,6 +163,32 @@ const char *&#160;</td><td class="memItemRight" valign="bottom"><b>format</b> = 
  &lt;channel_onset&gt; &lt;totalsize&gt; &lt;total_number_of_frames&gt; &lt;frame&gt; &lt;data&gt;</span> </p>
 <dl class="section author"><dt>Author</dt><dd>Phil Schatzmann </dd></dl>
 </div><a name="doc-func-members" id="doc-func-members"></a><h2 id="header-doc-func-members" class="groupheader">Member Function Documentation</h2>
+<a id="ac9c9fb77c32b9d3738cc15116b88ce2b" name="ac9c9fb77c32b9d3738cc15116b88ce2b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac9c9fb77c32b9d3738cc15116b88ce2b">&#9670;&#160;</a></span>headerSize()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t headerSize </td>
+          <td>(</td>
+          <td class="paramname"><span class="paramname"><em></em></span></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Size of the message without the audio data (including the maximum padding of the audio data) for the current sink_id </p>
+
+</div>
+</div>
 <a id="a716706926b81f57824a90e5bd3852dc6" name="a716706926b81f57824a90e5bd3852dc6"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a716706926b81f57824a90e5bd3852dc6">&#9670;&#160;</a></span>logData()</h2>
 

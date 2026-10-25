@@ -124,9 +124,7 @@ std::vector&lt; <a class="el" href="structarduino__aoo_1_1AOOSinkTarget.html">AO
 <tr class="memitem:af22ff4ab7a026e6c3b4b08eafb2df027" id="r_af22ff4ab7a026e6c3b4b08eafb2df027"><td class="memItemLeft" align="right" valign="top"><a id="af22ff4ab7a026e6c3b4b08eafb2df027" name="af22ff4ab7a026e6c3b4b08eafb2df027"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>buffer_size</b> = 50</td></tr>
 <tr class="memdesc:af22ff4ab7a026e6c3b4b08eafb2df027"><td class="mdescLeft">&#160;</td><td class="mdescRight">How many sent blocks to keep in the resend buffer (0 = disabled). <br /></td></tr>
-<tr class="memitem:a09c29b0090a82147afdb50ae0013b9c6" id="r_a09c29b0090a82147afdb50ae0013b9c6"><td class="memItemLeft" align="right" valign="top"><a id="a09c29b0090a82147afdb50ae0013b9c6" name="a09c29b0090a82147afdb50ae0013b9c6"></a>
-int&#160;</td><td class="memItemRight" valign="bottom"><b>max_frame_size</b> = 1400</td></tr>
-<tr class="memdesc:a09c29b0090a82147afdb50ae0013b9c6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maximum encoded frame size in bytes before multi-frame splitting. <br /></td></tr>
+<tr class="memitem:a004f4a2c752c74ce9e96e733ca06d1d1" id="r_a004f4a2c752c74ce9e96e733ca06d1d1"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a004f4a2c752c74ce9e96e733ca06d1d1">max_packet_size</a> = 960</td></tr>
 <tr class="memitem:ad83cd74cb79ac2f5c4d251bbc711a6ad" id="r_ad83cd74cb79ac2f5c4d251bbc711a6ad"><td class="memItemLeft" align="right" valign="top"><a id="ad83cd74cb79ac2f5c4d251bbc711a6ad" name="ad83cd74cb79ac2f5c4d251bbc711a6ad"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>redundancy</b> = 1</td></tr>
 <tr class="memdesc:ad83cd74cb79ac2f5c4d251bbc711a6ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Number of times each block is sent (1 = no redundancy, 2+ for loss tolerance). <br /></td></tr>
@@ -146,7 +144,23 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>log_osc</b> = false</
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Configuration for <a class="el" href="classarduino__aoo_1_1AOOSender.html" title="Audio source for AOO (Audio Over OSC) which is used to send audio data via the indicated output strea...">AOOSender</a>. </p>
 <dl class="section author"><dt>Author</dt><dd>Phil Schatzmann </dd></dl>
-</div><hr/>The documentation for this struct was generated from the following file:<ul>
+</div><a name="doc-variable-members" id="doc-variable-members"></a><h2 id="header-doc-variable-members" class="groupheader">Member Data Documentation</h2>
+<a id="a004f4a2c752c74ce9e96e733ca06d1d1" name="a004f4a2c752c74ce9e96e733ca06d1d1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a004f4a2c752c74ce9e96e733ca06d1d1">&#9670;&#160;</a></span>max_packet_size</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int max_packet_size = 960</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Maximum size of a /data message (UDP payload) in bytes: bigger blocks are split into several frames. Keep it below the network MTU minus 28 bytes for the IP and UDP headers, because many receivers (e.g. the ESP32-P4) drop IP fragments. The official aoo library uses 512. </p>
+
+</div>
+</div>
+<hr/>The documentation for this struct was generated from the following file:<ul>
 <li>src/<a class="el" href="AOOConfig_8h_source.html">AOOConfig.h</a></li>
 </ul>
 </div><!-- contents -->
