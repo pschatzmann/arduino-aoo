@@ -194,6 +194,16 @@ static bool probeFormat(EncodedAudioStream &decoded, StdFileStream &file,
   return false;
 }
 
+/// Starts a volume control with a linear factor: 0.5 halves the amplitude,
+/// values > 1 amplify (the samples are clipped)
+static void beginVolume(VolumeStream &volume, AudioInfo info, float factor) {
+  VolumeStreamConfig cfg;
+  cfg.copyFrom(info);
+  cfg.allow_boost = true;  // linear volume control, which allows values > 1
+  cfg.volume = factor;
+  volume.begin(cfg);
+}
+
 /// The sample rates which are supported by Opus
 static const int opus_rates[] = {8000, 12000, 16000, 24000, 48000};
 
@@ -229,6 +239,7 @@ struct Options {
   int channels = 2;
   double seconds = 0;  // 0: until Ctrl-C (or the end of the input)
   bool verbose = false;
+  float volume = 1.0f;
   AudioToolsLogLevel log_level = AudioToolsLogLevel::Warning;
   // send
   std::string host = "127.0.0.1";
@@ -259,6 +270,7 @@ static void usage() {
           "  -c, --channels N      number of channels [2]\n"
           "  -t, --time SECONDS    stop after the indicated time [Ctrl-C]\n"
           "  -v, --verbose         print statistics every second\n"
+          "      --volume FACTOR   volume, e.g. 0.5 or 2 (amplifies) [1.0]\n"
           "      --log LEVEL       error, warning, info or debug [warning]\n"
           "\n"
           "send options:\n"
@@ -317,6 +329,7 @@ static bool parseOptions(int argc, char **argv, Options &opt) {
     else if (arg == "-b" || arg == "--block") opt.block = atoi(value());
     else if (arg == "-R" || arg == "--redundancy") opt.redundancy = atoi(value());
     else if (arg == "--packet-size") opt.packet_size = atoi(value());
+    else if (arg == "--volume") opt.volume = atof(value());
     else if (arg == "--input") opt.input = value();
     else if (arg == "--output") opt.output = value();
     else if (arg == "-d" || arg == "--buffer-depth") opt.buffer_depth = atoi(value());
@@ -328,6 +341,10 @@ static bool parseOptions(int argc, char **argv, Options &opt) {
       fprintf(stderr, "unknown option: %s\n", arg.c_str());
       return false;
     }
+  }
+  if (opt.volume < 0) {
+    fprintf(stderr, "invalid volume: %.2f\n", opt.volume);
+    return false;
   }
   if (opt.codec != "pcm" && opt.codec != "opus") {
     fprintf(stderr, "unsupported codec: %s\n", opt.codec.c_str());
@@ -458,16 +475,18 @@ static int runSend(Options &opt) {
           opt.port > 0 ? opt.port : 9998, opt.id);
 
   // limit generators and files to the audio rate. The format conversion is
-  // done when writing: input -> converter -> throttle -> sender
+  // done when writing: input -> converter -> throttle -> volume -> sender
+  VolumeStream volume(sender);
+  beginVolume(volume, info, opt.volume);
   Throttle throttle_in(*input);
-  Throttle throttle_out(sender);
+  Throttle throttle_out(volume);
   throttle_in.begin(info);
   throttle_out.begin(info);
-  Print &out = is_real_time ? (Print &)sender : (Print &)throttle_out;
+  Print &out = is_real_time ? (Print &)volume : (Print &)throttle_out;
   FormatConverterStream converter(out);
   if (is_converted) converter.begin(in_info, info);
   Stream &source = is_real_time || is_converted ? *input : (Stream &)throttle_in;
-  Print &target = is_converted ? (Print &)converter : (Print &)sender;
+  Print &target = is_converted ? (Print &)converter : (Print &)volume;
 
   // copy one block at a time (for PCM a block is one AOO message)
   StreamCopy copier(target, source, block_frames * in_info.channels *
@@ -583,7 +602,10 @@ static int runReceive(Options &opt) {
           opt.port > 0 ? opt.port : 9999, opt.id, opt.output.c_str(),
           info.sample_rate, info.channels);
 
-  StreamCopy copier(target, receiver);
+  // receiver -> volume -> throttle -> output
+  VolumeStream volume(target);
+  beginVolume(volume, info, opt.volume);
+  StreamCopy copier(volume, receiver);
   uint64_t audio_bytes = 0;
   uint32_t start_ms = millis(), next_report = start_ms + 1000;
   int frame_bytes = info.channels * 2;
