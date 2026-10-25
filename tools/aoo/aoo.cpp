@@ -4,7 +4,7 @@
  *
  * Examples:
  *   aoo send --host 192.168.1.33 --codec opus --input sine:440
- *   aoo send --input music.wav --redundancy 2
+ *   aoo send --input music.mp3 --codec opus --redundancy 2
  *   aoo send --input mic
  *   aoo receive --output speaker
  *   aoo receive --output out.wav --time 60 --verbose
@@ -19,6 +19,7 @@
 
 #include "AOO.h"
 #include "AudioTools.h"
+#include "AudioTools/AudioCodecs/CodecHelix.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "AudioTools/AudioLibs/MiniAudioStream.h"
 #include "AudioTools/AudioLibs/StdioStream.h"
@@ -42,9 +43,11 @@ class StderrPrint : public Print {
   }
 } err_out;
 
-/// Stream on a file
+/// Stream on a file. No read timeout: the decoders read via
+/// Stream::readBytes(), which waits for the timeout at the end of the file
 class StdFileStream : public AudioStream {
  public:
+  StdFileStream() { setTimeout(0); }
   ~StdFileStream() { close(); }
   bool open(const char *path, const char *mode) {
     file = fopen(path, mode);
@@ -60,19 +63,13 @@ class StdFileStream : public AudioStream {
     file = nullptr;
   }
   FILE *handle() { return file; }
-  /// Limits the readable data (e.g. to the data chunk of a WAV file)
-  void setReadLimit(long bytes) { read_limit = bytes; }
   int available() override {
     if (file == nullptr || feof(file)) return 0;
-    return read_limit >= 0 ? (int)std::min(read_limit, (long)DEFAULT_BUFFER_SIZE)
-                           : DEFAULT_BUFFER_SIZE;
+    return DEFAULT_BUFFER_SIZE;
   }
   size_t readBytes(uint8_t *data, size_t len) override {
     if (file == nullptr) return 0;
-    if (read_limit >= 0 && (long)len > read_limit) len = read_limit;
-    size_t result = fread(data, 1, len, file);
-    if (read_limit >= 0) read_limit -= result;
-    return result;
+    return fread(data, 1, len, file);
   }
   size_t write(const uint8_t *data, size_t len) override {
     return file != nullptr ? fwrite(data, 1, len, file) : 0;
@@ -84,17 +81,10 @@ class StdFileStream : public AudioStream {
  protected:
   FILE *file = nullptr;
   bool is_owner = true;
-  long read_limit = -1;
 };
 
 static void writeLE(FILE *f, uint32_t value, int bytes) {
   for (int j = 0; j < bytes; j++) fputc((value >> (8 * j)) & 0xFF, f);
-}
-
-static uint32_t readLE(const uint8_t *data, int bytes) {
-  uint32_t result = 0;
-  for (int j = bytes - 1; j >= 0; j--) result = (result << 8) | data[j];
-  return result;
 }
 
 /// Writes a 16 bit PCM WAV file: the sizes are updated by close()
@@ -138,37 +128,82 @@ class WavFileOutput : public AudioOutput {
   uint32_t data_size = 0;
 };
 
-/// Opens a 16 bit PCM WAV file for reading and determines its format
-static bool openWav(StdFileStream &file, const char *path, AudioInfo &info) {
-  if (!file.open(path, "rb")) return false;
-  uint8_t header[12];
-  if (fread(header, 1, 12, file.handle()) != 12 ||
-      memcmp(header, "RIFF", 4) != 0 || memcmp(header + 8, "WAVE", 4) != 0)
-    return false;
-  bool has_format = false;
-  uint8_t chunk[8];
-  while (fread(chunk, 1, 8, file.handle()) == 8) {
-    uint32_t size = readLE(chunk + 4, 4);
-    if (memcmp(chunk, "fmt ", 4) == 0) {
-      uint8_t fmt[16];
-      if (size < 16 || fread(fmt, 1, 16, file.handle()) != 16) return false;
-      if (readLE(fmt, 2) != 1 || readLE(fmt + 14, 2) != 16) {
-        fprintf(stderr, "only 16 bit PCM WAV files are supported\n");
-        return false;
-      }
-      info.channels = readLE(fmt + 2, 2);
-      info.sample_rate = readLE(fmt + 4, 4);
-      info.bits_per_sample = 16;
-      fseek(file.handle(), size - 16 + (size & 1), SEEK_CUR);
-      has_format = true;
-    } else if (memcmp(chunk, "data", 4) == 0) {
-      file.setReadLimit(size);
-      return has_format;
-    } else {
-      fseek(file.handle(), size + (size & 1), SEEK_CUR);
+/// Remembers the audio format which is reported by a decoder
+class AudioInfoCatcher : public AudioInfoSupport {
+ public:
+  void setAudioInfo(AudioInfo info) override {
+    this->info = info;
+    is_defined = true;
+  }
+  AudioInfo audioInfo() override { return info; }
+  bool isDefined() { return is_defined; }
+
+ protected:
+  AudioInfo info;
+  bool is_defined = false;
+};
+
+/// Provides the already read (decoded) data before the data of the stream
+class PrefixedStream : public AudioStream {
+ public:
+  PrefixedStream(Stream &in) : p_in(&in) { setTimeout(0); }
+  std::vector<uint8_t> &prefix() { return data_prefix; }
+  int available() override {
+    return pos < data_prefix.size() ? data_prefix.size() - pos
+                                    : p_in->available();
+  }
+  size_t readBytes(uint8_t *data, size_t len) override {
+    if (pos < data_prefix.size()) {
+      size_t n = std::min(len, data_prefix.size() - pos);
+      memcpy(data, data_prefix.data() + pos, n);
+      pos += n;
+      return n;
     }
+    return p_in->readBytes(data, len);
+  }
+  size_t write(const uint8_t *, size_t) override { return 0; }
+
+ protected:
+  Stream *p_in;
+  std::vector<uint8_t> data_prefix;
+  size_t pos = 0;
+};
+
+/// Decodes the start of the file (MP3, AAC or WAV) until the audio format is
+/// known: the decoded data is kept in the PrefixedStream. A decoder only
+/// reports the format if it differs from the default, so the format is also
+/// known when decoded data is provided without a report.
+static bool probeFormat(EncodedAudioStream &decoded, StdFileStream &file,
+                        AudioInfoCatcher &catcher, PrefixedStream &result,
+                        AudioInfo &info) {
+  uint8_t buffer[1024];
+  for (int j = 0; j < 1000 && !catcher.isDefined() && result.prefix().empty();
+       j++) {
+    size_t n = decoded.readBytes(buffer, sizeof(buffer));
+    result.prefix().insert(result.prefix().end(), buffer, buffer + n);
+    if (n == 0 && file.available() <= 0) break;
+  }
+  if (catcher.isDefined()) {
+    info = catcher.audioInfo();
+    return true;
+  }
+  if (!result.prefix().empty()) {
+    info = decoded.audioInfo();
+    return true;
   }
   return false;
+}
+
+/// The sample rates which are supported by Opus
+static const int opus_rates[] = {8000, 12000, 16000, 24000, 48000};
+
+/// Returns the closest sample rate which is supported by Opus
+static int closestOpusRate(int rate) {
+  int result = opus_rates[0];
+  for (int r : opus_rates) {
+    if (abs(r - rate) < abs(result - rate)) result = r;
+  }
+  return result;
 }
 
 static bool endsWith(const std::string &str, const char *suffix) {
@@ -230,13 +265,14 @@ static void usage() {
           "  -H, --host IP         address of the receiver [127.0.0.1]\n"
           "  -P, --remote-port N   port of the receiver [9999]\n"
           "  -s, --sink N          sink id of the receiver [1]\n"
-          "  -C, --codec NAME      pcm or opus [pcm]\n"
+          "  -C, --codec NAME      pcm or opus [pcm]; sample rates which are\n"
+          "                        not supported by Opus are resampled\n"
           "  -b, --block N         pcm: frames per block [256],\n"
           "                        opus: frame size in ms: 10, 20, 40, 60 [20]\n"
           "  -R, --redundancy N    send each block N times [1]\n"
           "      --packet-size N   max. size of a data packet, bigger blocks\n"
           "                        are split [960]\n"
-          "      --input SOURCE    sine[:FREQUENCY], mic, FILE.wav or - for\n"
+          "      --input SOURCE    sine[:FREQUENCY], mic, FILE (mp3, aac, wav) or - for\n"
           "                        raw 16 bit PCM from stdin [sine:440]\n"
           "\n"
           "receive options:\n"
@@ -311,17 +347,27 @@ static bool isRunning(const Options &opt, uint32_t start_ms) {
 // ------------------------------------------------------------------
 
 static int runSend(Options &opt) {
-  AudioInfo info(opt.sample_rate, opt.channels, 16);
+  bool is_opus = opt.codec == "opus";
+  bool is_generated =
+      opt.input.rfind("sine", 0) == 0 || opt.input == "mic";
+  // the input format: generated audio uses a sample rate supported by the codec
+  AudioInfo in_info(opt.sample_rate, opt.channels, 16);
+  if (is_opus && is_generated) in_info.sample_rate = closestOpusRate(opt.sample_rate);
+  AudioInfo info = in_info;
 
   // define the input
   SineWaveGenerator<int16_t> sine(16000);
   GeneratedSoundStream<int16_t> sine_stream(sine);
-  StdFileStream wav_file;
+  StdFileStream file;
+  DecoderHelix helix;  // MP3, AAC or WAV, detected from the data
+  EncodedAudioStream decoded(&file, &helix);
+  AudioInfoCatcher file_info;
+  PrefixedStream file_stream(decoded);
   StdFileStream stdin_stream;
   MiniAudioStream mic;
   Stream *input = nullptr;
-  bool is_real_time = false;  // the input is paced by the audio device
-  bool has_end = false;       // the input ends (file)
+  Stream *raw_input = nullptr;  // to detect the end of the input
+  bool is_real_time = false;    // the input is paced by the audio device
   if (opt.input.rfind("sine", 0) == 0) {
     float freq = opt.input.size() > 5 ? atof(opt.input.c_str() + 5) : 440;
     sine.begin(info, freq);
@@ -338,19 +384,35 @@ static int runSend(Options &opt) {
   } else if (opt.input == "-") {
     stdin_stream.setFile(stdin);
     input = &stdin_stream;
-    has_end = true;
+    raw_input = &stdin_stream;
   } else {
-    if (!openWav(wav_file, opt.input.c_str(), info)) {
-      fprintf(stderr, "could not open the WAV file %s\n", opt.input.c_str());
+    if (!file.open(opt.input.c_str(), "rb")) {
+      fprintf(stderr, "could not open %s\n", opt.input.c_str());
       return 1;
     }
-    input = &wav_file;
-    has_end = true;
+    decoded.addNotifyAudioChange(file_info);
+    decoded.begin();
+    if (!probeFormat(decoded, file, file_info, file_stream, in_info)) {
+      fprintf(stderr, "unsupported file format (mp3, aac or wav): %s\n",
+              opt.input.c_str());
+      return 1;
+    }
+    input = &file_stream;
+    raw_input = &file;
   }
-  // limit generators and files to the audio rate
-  Throttle throttle(*input);
-  throttle.begin(info);
-  Stream &source = is_real_time ? *input : (Stream &)throttle;
+
+  // the sent format: 16 bits and for Opus a supported sample rate
+  info = in_info;
+  info.bits_per_sample = 16;
+  if (is_opus) info.sample_rate = closestOpusRate(in_info.sample_rate);
+  bool is_converted = info != in_info;
+  if (is_converted && info.sample_rate != in_info.sample_rate) {
+    fprintf(stderr, "resampling from %d Hz to %d Hz (supported by Opus)\n",
+            in_info.sample_rate, info.sample_rate);
+  } else if (is_opus && is_generated && opt.sample_rate != info.sample_rate) {
+    fprintf(stderr, "using %d Hz instead of %d Hz (supported by Opus)\n",
+            info.sample_rate, opt.sample_rate);
+  }
 
   // define the sender
   IPAddress remote_ip;
@@ -363,7 +425,7 @@ static int runSend(Options &opt) {
   OpusMultiStreamAudioEncoder opus;  // must exist as long as the sender
   AOOSender sender(opt.id, udp);
   int block_frames = opt.block > 0 ? opt.block : 256;
-  if (opt.codec == "opus") {
+  if (is_opus) {
     int ms = opt.block > 0 ? opt.block : 20;
     auto &ocfg = opus.config();
     ocfg.default_channel_mapping = OPUS_CHANNEL_MAPPING_SEPARATE;
@@ -395,13 +457,33 @@ static int runSend(Options &opt) {
           opt.host.c_str(), opt.remote_port, opt.sink,
           opt.port > 0 ? opt.port : 9998, opt.id);
 
+  // limit generators and files to the audio rate. The format conversion is
+  // done when writing: input -> converter -> throttle -> sender
+  Throttle throttle_in(*input);
+  Throttle throttle_out(sender);
+  throttle_in.begin(info);
+  throttle_out.begin(info);
+  Print &out = is_real_time ? (Print &)sender : (Print &)throttle_out;
+  FormatConverterStream converter(out);
+  if (is_converted) converter.begin(in_info, info);
+  Stream &source = is_real_time || is_converted ? *input : (Stream &)throttle_in;
+  Print &target = is_converted ? (Print &)converter : (Print &)sender;
+
   // copy one block at a time (for PCM a block is one AOO message)
-  StreamCopy copier(sender, source, block_frames * info.channels * 2);
+  StreamCopy copier(target, source, block_frames * in_info.channels *
+                                        (in_info.bits_per_sample / 8));
+  copier.setDelayOnNoData(0);
   uint32_t start_ms = millis(), next_report = start_ms + 1000;
+  uint32_t last_data_ms = start_ms;
   while (isRunning(opt, start_ms)) {
     size_t copied = copier.copy();
+    if (copied > 0) last_data_ms = millis();
     if (copied == 0) {
-      if (has_end && input->available() <= 0) break;
+      // files always provide data until they end (the decoder might not read
+      // the file to its end), stdin until it is closed
+      bool is_end = raw_input != nullptr &&
+                    (raw_input == &file || raw_input->available() <= 0);
+      if (is_end && millis() - last_data_ms > 200) break;
       delay(1);
       sender.receive();  // keep processing pings and requests
     }

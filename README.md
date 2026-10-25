@@ -86,7 +86,7 @@ A sender is used like any AudioTools output (e.g. with a `StreamCopy` from a mic
 The desktop build provides the `aoo` command line tool to send and receive audio, e.g. to test a microcontroller or to exchange audio with the official aoo library:
 
 ```bash
-aoo send --host 192.168.1.33 --codec opus --input sine:440   # or mic, a WAV file or - for stdin
+aoo send --host 192.168.1.33 --codec opus --input sine:440   # or mic, an MP3, AAC or WAV file or - for stdin
 aoo receive --output speaker                                 # or a WAV or CSV file or - for stdout
 ```
 
