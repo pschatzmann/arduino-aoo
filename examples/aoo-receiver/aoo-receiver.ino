@@ -14,7 +14,7 @@
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "WiFi.h"
-// #include "AudioTools/AudioLibs/AudioBoardStream.h"
+// #include "AudioTools/AudioLibs/I2SCodecStream.h"
 
 // on desktop we use miniaudio
 #if defined(IS_DESKTOP)
@@ -28,7 +28,7 @@ const int udpPort = 9999;  // port of this receiver (sink)
 AudioInfo info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
 AOOReceiver aoo_receiver(1, udp);  // sink id 1
-I2SStream out;  // or any other e.g. AudioBoardStream out(AudioKitEs8388V1);
+I2SStream out;  // or any other e.g. I2SCodecStream out(AudioKitEs8388V1);
 StreamCopy copier(out, aoo_receiver);  // receiver is the audio SOURCE
 
 // Each sender instance needs to have it separate decoder instance!
@@ -46,6 +46,11 @@ void setup() {
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
   WiFi.setSleep(false);
+  // the senders need this IP address
+  Serial.print("Receiving on ");
+  Serial.print(WiFi.localIP());
+  Serial.print(":");
+  Serial.println(udpPort);
 
   // start the output
   auto cfg_out = out.defaultConfig(TX_MODE);
