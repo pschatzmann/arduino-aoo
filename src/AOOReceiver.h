@@ -250,7 +250,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   AOOReceiverConfig aoo_cfg;
   bool just_updated_ = false;
   /// Minimum time between /start requests to the same source
-  static constexpr uint32_t kStartRequestIntervalMs = 500;
+  uint32_t start_request_interval_ms = 500;
 
   /// Processes the incoming messages and does the post processing
   void update() {
@@ -606,7 +606,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
   void requestStartFor(AOOSourceLine &info) {
     uint32_t now = millis();
     if (info.last_start_request != 0 &&
-        now - info.last_start_request < kStartRequestIntervalMs)
+        now - info.last_start_request < start_request_interval_ms)
       return;
     info.last_start_request = now == 0 ? 1 : now;
     stats_.start_requests++;

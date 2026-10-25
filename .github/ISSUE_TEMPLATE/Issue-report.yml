@@ -1,0 +1,58 @@
+name: Bug report
+description: Report only bugs here!
+body:
+  - type: markdown
+    attributes:
+      value: |
+        * Before reporting a new bug please check and search the [list of existing issues](https://github.com/pschatzmann/arduino-aoo/issues?q=)
+        * Please check [the Readme](https://github.com/pschatzmann/arduino-aoo) and [Wiki](https://github.com/pschatzmann/arduino-aoo/wiki): e.g. [Choosing the Error Correction](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#choosing-the-error-correction)
+        * Don't forget to check [the discussions](https://github.com/pschatzmann/arduino-audio-tools/discussions)
+        * If still experiencing the issue, please provide as many details as possible below about your hardware, computer setup, network and code.
+  - type: textarea
+    id: Description
+    attributes:
+      label: Problem Description
+      description: Please describe your problem here and expected behaviour
+      placeholder: ex. No audio/dropouts/can't connect to the official aoo library/wrong function/missing parameter..
+    validations:
+      required: true
+  - type: textarea
+    id: Board
+    attributes:
+      label: Device Description
+      description: What development board are you using for the sender and the receiver
+      placeholder: e.g. ESP32 Wroom sender, ESP32-S3 receiver, Desktop Build, Pure Data with the official aoo library
+    validations:
+       required: true
+  - type: textarea
+    id: sketch
+    attributes:
+      label: Sketch
+      description: Please provide full minimal sketches/code which can be run to reproduce your issue (sender and receiver)
+      placeholder: ex. Related part of the code to replicate the issue
+      render: cpp
+    validations:
+     required: true
+
+  - type: textarea
+    id: other-remarks
+    attributes:
+      label: Other Steps to Reproduce
+      description: Is there any other information you can think of which will help us reproduce this problem? e.g. the codec, sample rate, block size, WiFi or Ethernet and the log output.
+      placeholder: ex. I also tried with PCM instead of Opus, with other HW...it works correctly on that setup.
+
+  - type: textarea
+    id: sceanario
+    attributes:
+      label: What is your development environment (with Arduino Core Version information)
+      description: Please provide the information about your development/runtime environment
+      placeholder: Arduino ESP 3.3.12, Desktop Build, IDF 5.3.2, PlatformIO ESP32 6.10.0
+
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: I have checked existing issues, discussions and online documentation
+      description: You agree to check all the resources above before opening a new issue.
+      options:
+        - label: I confirm I have checked existing issues, discussions and online documentation
+          required: true

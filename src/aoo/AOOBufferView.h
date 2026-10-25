@@ -51,13 +51,13 @@ class BufferStatsTracker {
   }
 
   /// Quality of the recent past: received / expected within the current
-  /// window of kQualityWindow sequence numbers (or the previous window while
-  /// the current one has fewer than kMinQualityWindow entries). Unlike the
+  /// window of quality_window_ sequence numbers (or the previous window while
+  /// the current one has fewer than min_quality_window_ entries). Unlike the
   /// cumulative quality, a loss early in the stream does not keep this value
   /// low for a long time.
   float recentQualityPercent() const {
     int32_t expected = window_max_ - window_first_ + 1;
-    if (window_first_ >= 0 && expected >= kMinQualityWindow) {
+    if (window_first_ >= 0 && expected >= min_quality_window_) {
       return (float)window_received_ * 100.0f / expected;
     }
     return has_previous_window_ ? previous_window_quality_ : 100.0f;
@@ -97,8 +97,8 @@ class BufferStatsTracker {
   int32_t continuousAvailable() const { return stats_.continuous_available; }
 
  protected:
-  static constexpr int32_t kQualityWindow = 100;
-  static constexpr int32_t kMinQualityWindow = 20;
+  int32_t quality_window_ = 100;
+  int32_t min_quality_window_ = 20;
   BufferStats stats_;
   int32_t first_seq_ = -1;
   int32_t window_first_ = -1;
@@ -116,7 +116,7 @@ class BufferStatsTracker {
     window_received_++;
     if (seq > window_max_) window_max_ = seq;
     int32_t expected = window_max_ - window_first_ + 1;
-    if (expected >= kQualityWindow) {
+    if (expected >= quality_window_) {
       previous_window_quality_ = (float)window_received_ * 100.0f / expected;
       has_previous_window_ = true;
       window_first_ = window_max_ + 1;

@@ -9,26 +9,33 @@
 namespace arduino_aoo {
 
 /**
- * @brief Per-source audio stream for AOOReceiver.
+ * @brief The audio of one remote source (sender) received by an AOOReceiver.
  *
- * Each remote source gets its own encoded data buffer, decoder, format
- * converter, packet recovery, and drift compensation. Extends AudioStream so
- * it can be added directly to an InputMixer.
+ * The receiver creates one AOOSourceLine for each stream (identified by
+ * source id, sink id and stream id) and stores the received encoded segments
+ * with storeEncodedData(). The source line provides the decoded audio in the
+ * output format of the receiver: as an AudioStream it can be read directly
+ * or added to the InputMixer of the receiver.
+ *
+ * It consists of
+ * - an IndexedRingBuffer of encoded segments (buffer_depth), which serves as
+ *   jitter buffer: the audio is only provided once it is half full (priming)
+ * - the decoder and a FormatConverterStream, which converts to the output
+ *   format and resamples for the adaptive resampling (updateDrift())
+ * - a QueueStream with the decoded audio
+ * - the packet recovery (resend requests) and the statistics
  *
  * On read, the encoded segments are taken one by one from the buffer and
- * written to the decoder (so that a decoder like Opus gets exactly one packet
- * per write): decoder -> FormatConverterStream -> QueueStream -> readBytes().
- * A segment is only decoded when the queue has space for a complete decoded
- * segment, so that the decoder never has to wait for free space.
- * A missing segment is replaced by silence of the size of the last decoded
- * segment.
+ * written to the decoder, so that a decoder like Opus gets exactly one packet
+ * per write. A segment is only decoded when the queue has space for a
+ * complete decoded segment, so that the decoder never has to wait for free
+ * space. A missing segment is replaced by silence of the size of the last
+ * decoded segment.
  *
- * @ingroup aoo
+ * @ingroup aoo-utils
  * @author Phil Schatzmann
  * @copyright GPLv3
  */
-class AOOReceiver;
-
 class AOOSourceLine : public AudioStream {
   friend class AOOReceiver;
 
@@ -63,14 +70,11 @@ class AOOSourceLine : public AudioStream {
 
   // --- Statistics ---
 
-  BufferStatsTracker stats_tracker;
+  /// Statistics of the received segments
+  const BufferStats &stats() const { return stats_tracker.stats(); }
 
   /// Quality percentage based on stats tracker
   float qualityPercent() const { return stats_tracker.qualityPercent(); }
-
-  // --- Recovery ---
-
-  AOOPacketRecovery recovery;
 
   // --- Thread safety ---
 
@@ -158,7 +162,7 @@ class AOOSourceLine : public AudioStream {
     fill_average =
         fill_average < 0 ? fill : 0.8f * fill_average + 0.2f * fill;
     float error = (fill_average - target) / target;
-    if (fabsf(error) < kDriftDeadband) error = 0;
+    if (fabsf(error) < drift_deadband) error = 0;
     float max_factor = max_percent / 100.0f;
     float correction = error * max_factor;
     if (correction > max_factor) correction = max_factor;
@@ -223,6 +227,8 @@ class AOOSourceLine : public AudioStream {
   std::vector<bool> assembly_frames;
 
   MutexBase *p_mutex = nullptr;
+  BufferStatsTracker stats_tracker;
+  AOOPacketRecovery recovery;
   IndexedRingBuffer<SingleBuffer<uint8_t>> encoded_buffer;
   IndexedRingBufferStreamView buffer_view;
   std::unique_ptr<AudioDecoder> p_decoder;
@@ -233,6 +239,12 @@ class AOOSourceLine : public AudioStream {
   int last_decoded_size = 0;
   /// expected maximum size of a decoded segment
   int max_decoded_size = 0;
+
+  /// fill level deviations below this fraction of the target are ignored
+  float drift_deadband = 0.25f;
+  uint32_t last_drift_update = 0;
+  int resample_rate = 0;
+  float fill_average = -1.0f;
 
   /// Sizes the decoded queue for a few decoded segments in the output format
   void setupDecodedQueue(AudioInfo output_info) {
@@ -285,11 +297,6 @@ class AOOSourceLine : public AudioStream {
     }
   }
 
-  /// fill level deviations below this fraction of the target are ignored
-  static constexpr float kDriftDeadband = 0.25f;
-  uint32_t last_drift_update = 0;
-  int resample_rate = 0;
-  float fill_average = -1.0f;
 };
 
 }  // namespace arduino_aoo

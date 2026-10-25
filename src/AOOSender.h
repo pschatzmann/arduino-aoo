@@ -119,7 +119,7 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
       LOGE("Encoder failed");
       return false;
     }
-    LOGW(
+    LOGI(
         "AOOSender: stream_id=%d, codec=%s, block_size=%d, cfg.redundancy=%d, "
         "cfg.codec_delay_samples=%d",
         stream_id, codecStr(), p_encoder->samplesPerFrame(), cfg.redundancy,

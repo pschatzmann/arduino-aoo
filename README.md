@@ -61,14 +61,25 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 - **Sender is lightweight**: Encoding + UDP send is straightforward. Even single-core platforms handle PCM sending well.
 - **Receiver is heavier**: Decoding + format conversion + mixing + audio output. On single-core platforms, use larger block sizes and lower sample rates to reduce per-block overhead.
 - **Serial transport** (`AOOStreamSerial`): Works on any platform with UART. Useful for point-to-point links where WiFi isn't available. Limited by baud rate (~11 KB/s at 115200).
-- **Error correction**: resend requests (default) work well with Opus and 20 ms frames; redundancy (`cfg.redundancy = 2` on the sender) is the most robust against random loss but doubles the bandwidth. See [Choosing the Error Correction](doc/architecture.md#choosing-the-error-correction) for measurements.
+- **Error correction**: resend requests (default) work well with Opus and 20 ms frames; redundancy (`cfg.redundancy = 2` on the sender) is the most robust against random loss but doubles the bandwidth. See [Choosing the Error Correction](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#choosing-the-error-correction) for measurements.
 - **Interoperability**: tested in both directions against the official aoo library (PCM and Opus, desktop and ESP32-S3 over WiFi).
+
+## Command Line Tool
+
+The desktop build provides the `aoo` command line tool to send and receive audio, e.g. to test a microcontroller or to exchange audio with the official aoo library:
+
+```bash
+aoo send --host 192.168.1.33 --codec opus --input sine:440   # or mic, a WAV file or - for stdin
+aoo receive --output speaker                                 # or a WAV or CSV file or - for stdout
+```
+
+See [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build#command-line-tool) for the options.
 
 ## Documentation
 
-- [Quick Start & Examples](doc/quickstart.md)
-- [Architecture & Features](doc/architecture.md)
-- [Desktop Build & Tests](doc/desktop-build.md)
+- [Quick Start & Examples](https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start)
+- [Architecture & Features](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture)
+- [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build)
 - [AoO V2.0 Protocol Specification](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md)
 - [OSC V1.0 Specification](https://opensoundcontrol.stanford.edu/spec-1_0.html)
 

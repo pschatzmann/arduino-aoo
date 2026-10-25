@@ -32,6 +32,9 @@ target_include_directories(arduino_aoo INTERFACE src)
 # build all examples
 add_subdirectory("examples")
 
+# command line tool
+add_subdirectory("tools")
+
 # automated tests: run with ctest from the build directory
 enable_testing()
 add_test(NAME protocols COMMAND protocol)
