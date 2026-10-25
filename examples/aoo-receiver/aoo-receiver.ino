@@ -13,7 +13,11 @@
 #include "AOO.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>
+#else
 #include "WiFi.h"
+#endif
 // #include "AudioTools/AudioLibs/I2SCodecStream.h"
 
 // on desktop we use miniaudio
@@ -25,7 +29,7 @@
 const char* ssid = "SSID";
 const char* password = "password";
 const int udpPort = 9999;  // port of this receiver (sink)
-AudioInfo info(48000, 2, 16);
+AudioInfo audio_info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
 AOOReceiver aoo_receiver(1, udp);  // sink id 1
 I2SStream out;  // or any other e.g. I2SCodecStream out(AudioKitEs8388V1);
@@ -45,7 +49,9 @@ void setup() {
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
-  WiFi.setSleep(false);
+#if defined(ESP32)
+  WiFi.setSleep(false);  // no power saving: less latency and packet loss
+#endif
   // the senders need this IP address
   Serial.print("Receiving on ");
   Serial.print(WiFi.localIP());
@@ -54,7 +60,7 @@ void setup() {
 
   // start the output
   auto cfg_out = out.defaultConfig(TX_MODE);
-  cfg_out.copyFrom(info);
+  cfg_out.copyFrom(audio_info);
   out.begin(cfg_out);
 
   // register decoders
@@ -64,7 +70,7 @@ void setup() {
   auto cfg = aoo_receiver.defaultConfig();
   // Define the audio format to be used for the output: all sources are
   // converted to it
-  cfg.copyFrom(info);
+  cfg.copyFrom(audio_info);
 
   // Buffer depth for encoded segments (also serves as jitter buffer)
   // cfg.buffer_depth = 10;

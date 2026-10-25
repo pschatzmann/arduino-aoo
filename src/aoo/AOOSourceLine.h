@@ -239,7 +239,7 @@ class AOOSourceLine : public AudioStream {
   IndexedRingBufferStreamView buffer_view;
   std::unique_ptr<AudioDecoder> p_decoder;
   FormatConverterStream format_converter;
-  RingBuffer<uint8_t> decoded_buffer{0};
+  audio_tools::RingBuffer<uint8_t> decoded_buffer{0};
   QueueStream<uint8_t> decoded{decoded_buffer};
   std::vector<uint8_t> segment;
   int last_decoded_size = 0;

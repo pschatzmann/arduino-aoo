@@ -3,7 +3,11 @@
  * Since the generation is too fast, we throttle the generated audio
  * to the correct speed.
  */
+#if defined(ESP8266)
+#include <ESP8266WiFi.h>
+#else
 #include "WiFi.h"
+#endif
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "AOO.h"
@@ -18,7 +22,7 @@ const char *password = "password";
 const int receiverPort = 9999;  // port of the receiver (sink)
 const int senderPort = 9998;    // local port of this sender (source)
 IPAddress receiverIP(192, 168, 1, 44);
-AudioInfo info(48000, 1, 16);
+AudioInfo audio_info(48000, 1, 16);
 SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
 Throttle throttled_in(sound);
@@ -42,7 +46,9 @@ void setup() {
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
-  WiFi.setSleep(false);  
+#if defined(ESP32)
+  WiFi.setSleep(false);  // no power saving: less latency and packet loss
+#endif
   Serial.print("Connected to WiFi. IP address: ");
   Serial.println(WiFi.localIP());
 
@@ -51,14 +57,14 @@ void setup() {
   udp.setLocalPort(senderPort);
 
   // Setup sine wave input
-  sineWave.begin(info, N_B4);
-  throttled_in.begin(info);
+  sineWave.begin(audio_info, N_B4);
+  throttled_in.begin(audio_info);
 
   // Setup Opus encoder for sender: comment out for PCM
   setupEncoder();
 
   auto cfg = aoo_sender.defaultConfig();
-  cfg.copyFrom(info);
+  cfg.copyFrom(audio_info);
   // cfg.sample_rate = 22000;
   // cfg.channels = 1;
   // cfg.bits_per_sample = 16;

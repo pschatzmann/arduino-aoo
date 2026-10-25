@@ -1,5 +1,9 @@
 # AoO - Audio Over OSC for Arduino
 
+[![Arduino Library](https://img.shields.io/badge/Arduino-Library-blue.svg)](https://www.arduino.cc/reference/en/libraries/)
+[![CMake](https://img.shields.io/badge/CMake-Supported-blue.svg)](https://github.com/pschatzmann/arduino-aoo/blob/main/CMakeLists.txt)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 "Audio over OSC" aka AoO is a message-based real-time audio streaming system using Open Sound Control as its wire format. It sends audio from arbitrary senders to arbitrary receivers on demand.
 
 This is a header-only C++ implementation using the Arduino Networking API for communication and the [Arduino Audio Tools](https://github.com/pschatzmann/arduino-audio-tools) library for audio processing. It is compatible with the [official AoO library](https://git.iem.at/aoo/aoo), so a microcontroller can also exchange audio with Pure Data, SuperCollider or any other application using it.
@@ -92,6 +96,7 @@ See [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desk
 
 - [Quick Start & Examples](https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start)
 - [Architecture & Features](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture)
+- [Platforms](https://github.com/pschatzmann/arduino-aoo/wiki/Platforms)
 - [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build)
 - [Class Documentation](https://pschatzmann.github.io/arduino-aoo/group__main.html)
 - [AoO V2.0 Protocol Specification](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md)

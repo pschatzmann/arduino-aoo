@@ -1,7 +1,11 @@
 #pragma once
 #include "AudioTools.h"
 #include "stdint.h"
-#if __has_include(<sys/time.h>)
+// the system time is only used on platforms which support it (and can set it
+// e.g. via SNTP): on some others (e.g. Renesas) sys/time.h is incomplete
+#if (defined(ESP32) || defined(ESP8266) || defined(IS_DESKTOP) ||   \
+     (defined(ARDUINO_ARCH_RP2040) && !defined(ARDUINO_ARCH_MBED))) && \
+    __has_include(<sys/time.h>)
 #include <sys/time.h>
 #define AOO_HAS_GETTIMEOFDAY 1
 #endif
