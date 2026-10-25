@@ -6,7 +6,7 @@ var searchData=
   ['pendingcount_3',['pendingCount',['../classarduino__aoo_1_1AOOPacketRecovery.html#a027fd13c9e11ffef42b695029ec0007d',1,'arduino_aoo::AOOPacketRecovery']]],
   ['pendingseq_4',['PendingSeq',['../structarduino__aoo_1_1AOOPacketRecovery_1_1PendingSeq.html',1,'arduino_aoo::AOOPacketRecovery']]],
   ['ping_5finterval_5fms_5',['ping_interval_ms',['../structarduino__aoo_1_1AOOSenderConfig.html#a60f04a65e7c17d299f68ce722a92017b',1,'arduino_aoo::AOOSenderConfig']]],
-  ['platforms_6',['Platforms',['../index.html#autotoc_md4',1,'']]],
+  ['platforms_6',['Platforms',['../index.html#autotoc_md5',1,'']]],
   ['postprocessing_7',['postProcessing',['../classarduino__aoo_1_1AOOReceiver.html#a50bca196003c3379c69d249187e34a66',1,'arduino_aoo::AOOReceiver::postProcessing()'],['../classarduino__aoo_1_1AOOReceiverTask.html#a50bca196003c3379c69d249187e34a66',1,'arduino_aoo::AOOReceiverTask::postProcessing()']]],
   ['processinvite_8',['processInvite',['../classarduino__aoo_1_1AOOSender.html#abaa989307817e6e3e0217c6b88636cc2',1,'arduino_aoo::AOOSender']]],
   ['processmessages_9',['processMessages',['../classarduino__aoo_1_1AOOMessageHandler.html#a1b1c40556e080429da119e3b1cbd9451',1,'arduino_aoo::AOOMessageHandler::processMessages()'],['../classarduino__aoo_1_1AOOReceiver.html#a489aded80ca974bb6ac4a89e8471c1bc',1,'arduino_aoo::AOOReceiver::processMessages()'],['../classarduino__aoo_1_1AOOReceiverTask.html#a489aded80ca974bb6ac4a89e8471c1bc',1,'arduino_aoo::AOOReceiverTask::processMessages()']]],

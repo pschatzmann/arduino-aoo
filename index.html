@@ -76,7 +76,7 @@ $(function() {
 <div class="contents">
 <div class="textblock"><p><a class="anchor" id="md_README"></a></p>
 <p>"Audio over OSC" aka AoO is a message-based real-time audio streaming system using Open Sound Control as its wire format. It sends audio from arbitrary senders to arbitrary receivers on demand.</p>
-<p>This is a header-only C++ implementation using the Arduino Networking API for communication and the <a href="https://github.com/pschatzmann/arduino-audio-tools">Arduino Audio Tools</a> library for audio processing. It is compatible with the <a href="https://git.iem.at/aoo/aoo">official AoO library</a>.</p>
+<p>This is a header-only C++ implementation using the Arduino Networking API for communication and the <a href="https://github.com/pschatzmann/arduino-audio-tools">Arduino Audio Tools</a> library for audio processing. It is compatible with the <a href="https://git.iem.at/aoo/aoo">official AoO library</a>, so a microcontroller can also exchange audio with Pure Data, SuperCollider or any other application using it.</p>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md1"></a>
 Key Features</h1>
 <ul>
@@ -87,6 +87,7 @@ Key Features</h1>
 <li><b>Automatic packet recovery</b> — detects gaps, requests resends, quality-gated to avoid flooding</li>
 <li><b>Adaptive resampling</b> — compensates clock drift between sender and receiver</li>
 <li><b>FreeRTOS task support</b> — <span class="tt">AOOReceiverTask</span> processes UDP on a separate core (ESP32)</li>
+<li><b>Late joining</b> — a receiver which missed the start of a stream requests the format from the sender</li>
 <li><b>Binary + OSC interop</b> — compatible with the official aoo library's binary data format</li>
 <li><b>Multi-receiver addressing</b> — one sender can target multiple receivers with per-target IP</li>
 <li><b>Invite/uninvite</b> — demand-driven streaming: receivers request senders to start/stop</li>
@@ -104,9 +105,24 @@ Core Classes</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><span class="tt">AOOReceiver</span>  </td><td class="markdownTableBodyNone">Receives and decodes audio from one or more senders. Implements <span class="tt">AudioStream</span> — pull decoded audio via <span class="tt">readBytes()</span>.  </td></tr>
 <tr class="markdownTableRowOdd">
-<td class="markdownTableBodyNone"><span class="tt">AOOReceiverTask</span>  </td><td class="markdownTableBodyNone">ESP32 variant that processes UDP in a separate FreeRTOS task for zero packet loss.  </td></tr>
+<td class="markdownTableBodyNone"><span class="tt">AOOReceiverTask</span>  </td><td class="markdownTableBodyNone">Variant of <span class="tt">AOOReceiver</span> which receives the UDP messages in a separate task: on a dual-core ESP32 the reception is not blocked while <span class="tt">loop()</span> is busy.  </td></tr>
 </table>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md3"></a>
+Examples</h1>
+<p>A sender is used like any AudioTools output (e.g. with a <span class="tt">StreamCopy</span> from a microphone or a generator) and a receiver like any AudioTools source (e.g. with a <span class="tt">StreamCopy</span> to I2S). The receiver converts all senders to the output format defined in its configuration. See the <a href="https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start">Quick Start</a> for the code and the <a href="https://github.com/pschatzmann/arduino-aoo/tree/main/examples">examples</a> for the complete sketches:</p>
+<table class="markdownTable">
+<tr class="markdownTableHead">
+<th class="markdownTableHeadNone">Example  </th><th class="markdownTableHeadNone">Description  </th></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a href="https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-sender">aoo-sender</a>  </td><td class="markdownTableBodyNone">sends a sine wave with Opus  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a href="https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver">aoo-receiver</a>  </td><td class="markdownTableBodyNone">receives PCM or Opus and prints it as CSV (replace the output with I2S to play it)  </td></tr>
+<tr class="markdownTableRowOdd">
+<td class="markdownTableBodyNone"><a href="https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver-task">aoo-receiver-task</a>  </td><td class="markdownTableBodyNone">the same with <span class="tt">AOOReceiverTask</span>  </td></tr>
+<tr class="markdownTableRowEven">
+<td class="markdownTableBodyNone"><a href="https://github.com/pschatzmann/arduino-aoo/tree/main/examples/tests">tests</a>  </td><td class="markdownTableBodyNone">automated tests, which also run on a microcontroller  </td></tr>
+</table>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
 Transport</h1>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -116,9 +132,9 @@ Transport</h1>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><span class="tt">AOOStreamSerial</span>  </td><td class="markdownTableBodyNone">Serial transport with HDLC framing  </td></tr>
 </table>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
 Platforms</h1>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
 What works well</h2>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -130,7 +146,7 @@ What works well</h2>
 <tr class="markdownTableRowOdd">
 <td class="markdownTableBodyNone"><b>Desktop</b> (Linux/Mac)  </td><td class="markdownTableBodyNone">✅ PCM + Opus  </td><td class="markdownTableBodyNone">✅ PCM + Opus  </td><td class="markdownTableBodyNone">Full interop with the official aoo library. Use for testing with <span class="tt">MiniAudioStream</span>.  </td></tr>
 </table>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
 Challenges</h2>
 <table class="markdownTable">
 <tr class="markdownTableHead">
@@ -144,7 +160,7 @@ Challenges</h2>
 <tr class="markdownTableRowEven">
 <td class="markdownTableBodyNone"><b>Arduino (AVR/SAMD)</b>  </td><td class="markdownTableBodyNone">❌  </td><td class="markdownTableBodyNone">❌  </td><td class="markdownTableBodyNone">Insufficient RAM and CPU for real-time audio streaming.  </td></tr>
 </table>
-<h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
 Key considerations</h2>
 <ul>
 <li><b>WiFi bandwidth</b>: PCM mono at 44.1kHz = 88 KB/s, stereo = 176 KB/s. Opus reduces this to ~10-20 KB/s. WiFi can handle both, but packet timing jitter causes gaps at higher PCM rates.</li>
@@ -155,28 +171,46 @@ Key considerations</h2>
 <li><b>Error correction</b>: resend requests (default) work well with Opus and 20 ms frames; redundancy (<span class="tt">cfg.redundancy = 2</span> on the sender) is the most robust against random loss but doubles the bandwidth. See <a href="https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#choosing-the-error-correction">Choosing the Error Correction</a> for measurements.</li>
 <li><b>Interoperability</b>: tested in both directions against the official aoo library (PCM and Opus, desktop and ESP32-S3 over WiFi).</li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
 Command Line Tool</h1>
 <p>The desktop build provides the <span class="tt"><a class="el" href="group__aoo.html" title="Public API for Audio Over OSC.">Aoo</a></span> command line tool to send and receive audio, e.g. to test a microcontroller or to exchange audio with the official aoo library:</p>
 <div class="fragment"><div class="line">aoo send --host 192.168.1.33 --codec opus --input sine:440   # or mic, a WAV file or - for stdin</div>
 <div class="line">aoo receive --output speaker                                 # or a WAV or CSV file or - for stdout</div>
 </div><!-- fragment --><p>See <a href="https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build#command-line-tool">Desktop Build &amp; Tests</a> for the options.</p>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
 Documentation</h1>
 <ul>
 <li><a href="https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start">Quick Start &amp; Examples</a></li>
 <li><a href="https://github.com/pschatzmann/arduino-aoo/wiki/Architecture">Architecture &amp; Features</a></li>
 <li><a href="https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build">Desktop Build &amp; Tests</a></li>
+<li><a href="https://pschatzmann.github.io/arduino-aoo/group__main.html">Class Documentation</a></li>
 <li><a href="https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md">AoO V2.0 Protocol Specification</a></li>
 <li><a href="https://opensoundcontrol.stanford.edu/spec-1_0.html">OSC V1.0 Specification</a></li>
 </ul>
-<h1 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
 Installation in Arduino</h1>
-<p>Download as ZIP and use Arduino IDE: Sketch -&gt; Include Library -&gt; Add .ZIP Library.</p>
-<p>Or clone the libraries into your Arduino libraries folder:</p>
+<p>This library needs the <a href="https://github.com/pschatzmann/arduino-audio-tools">Arduino Audio Tools</a> and, for the Opus codec, <a href="https://github.com/pschatzmann/arduino-libopus">arduino-libopus</a>.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
+Installation with ZIP files</h2>
+<ol type="1">
+<li>Download the ZIP files of the libraries from GitHub (the green <b>Code</b> button -&gt; <b>Download ZIP</b>), or directly:<ul>
+<li><a href="https://github.com/pschatzmann/arduino-audio-tools/archive/refs/heads/main.zip">arduino-audio-tools</a></li>
+<li><a href="https://github.com/pschatzmann/arduino-aoo/archive/refs/heads/main.zip">arduino-aoo</a></li>
+<li>optional: <a href="https://github.com/pschatzmann/arduino-libopus/archive/refs/heads/main.zip">arduino-libopus</a></li>
+</ul>
+</li>
+<li>In the Arduino IDE select <b>Sketch -&gt; Include Library -&gt; Add .ZIP Library...</b> and select each downloaded ZIP file (don't unpack them).</li>
+<li>Restart the Arduino IDE: the examples are then available in <b>File -&gt; Examples -&gt; Audio Over OSC</b>.</li>
+</ol>
+<p>To update a library, delete its folder (e.g. <span class="tt">arduino-aoo-main</span>) in the <span class="tt">libraries</span> folder of your sketchbook and add the new ZIP file again.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+Installation with Git</h2>
+<p>Alternatively clone the libraries into your Arduino libraries folder: this makes the updates easier (<span class="tt">git pull</span>):</p>
 <div class="fragment"><div class="line">cd ~/Documents/Arduino/libraries</div>
 <div class="line">git clone https://github.com/pschatzmann/arduino-audio-tools.git</div>
 <div class="line">git clone https://github.com/pschatzmann/arduino-aoo.git</div>
+<div class="line"># optional: for the Opus codec</div>
+<div class="line">git clone https://github.com/pschatzmann/arduino-libopus.git</div>
 </div><!-- fragment --> </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->

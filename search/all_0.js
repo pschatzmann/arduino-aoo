@@ -42,7 +42,7 @@ var searchData=
   ['aoostreamserial_39',['AOOStreamSerial',['../classarduino__aoo_1_1AOOStreamSerial.html',1,'AOOStreamSerial'],['../classarduino__aoo_1_1AOOStreamSerial.html#af24d43ea24fb5ae75b8df856c047bc71',1,'arduino_aoo::AOOStreamSerial::AOOStreamSerial()']]],
   ['aoostreamudp_40',['AOOStreamUDP',['../classarduino__aoo_1_1AOOStreamUDP.html',1,'AOOStreamUDP&lt; UDP_t &gt;'],['../classarduino__aoo_1_1AOOStreamUDP.html#a1b2ca12e30b5cfa05754e6d1cea221f4',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP()=default'],['../classarduino__aoo_1_1AOOStreamUDP.html#a85c68c9b9803af71dd4c280e34828c90',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP(IPAddress address, uint16_t port, bool multicast=false)'],['../classarduino__aoo_1_1AOOStreamUDP.html#a75af033e626460976a77bca0b2cb163c',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP(uint16_t port)']]],
   ['aoouninvite_41',['AOOUninvite',['../structarduino__aoo_1_1AOOUninvite.html',1,'arduino_aoo']]],
-  ['arduino_42',['Arduino',['../index.html',1,'AoO - Audio Over OSC for Arduino'],['../index.html#autotoc_md10',1,'Installation in Arduino']]],
+  ['arduino_42',['Arduino',['../index.html',1,'AoO - Audio Over OSC for Arduino'],['../index.html#autotoc_md11',1,'Installation in Arduino']]],
   ['audio_20over_20osc_43',['Audio Over OSC',['../group__main.html',1,'']]],
   ['audio_20over_20osc_20for_20arduino_44',['AoO - Audio Over OSC for Arduino',['../index.html',1,'']]],
   ['audioinfo_45',['audioInfo',['../classarduino__aoo_1_1AOOReceiver.html#aed4bf0d5ce93f27242be485943d0b37d',1,'arduino_aoo::AOOReceiver']]],

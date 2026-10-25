@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['in_20arduino_0',['Installation in Arduino',['../index.html#autotoc_md10',1,'']]],
-  ['installation_20in_20arduino_1',['Installation in Arduino',['../index.html#autotoc_md10',1,'']]]
+  ['features_0',['Key Features',['../index.html#autotoc_md1',1,'']]],
+  ['files_1',['Installation with ZIP files',['../index.html#autotoc_md12',1,'']]],
+  ['for_20arduino_2',['AoO - Audio Over OSC for Arduino',['../index.html',1,'']]]
 ];
