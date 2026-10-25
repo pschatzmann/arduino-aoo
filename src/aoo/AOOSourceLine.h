@@ -104,6 +104,7 @@ class AOOSourceLine : public AudioStream {
       stats_tracker.received(seq);
       buffer_view.notifySegmentReceived(seq);
       last_data_time = millis();
+      data_received = true;
     }
     return written > 0;
   }
@@ -116,6 +117,7 @@ class AOOSourceLine : public AudioStream {
     encoded_buffer.resize(buffer_depth);
     buffer_view.setBuffer(&encoded_buffer);
     buffer_view.setStartSeq(-1);
+    data_received = false;
 
     resample_rate = source_audio_info.sample_rate;
     fill_average = -1.0f;
@@ -209,6 +211,10 @@ class AOOSourceLine : public AudioStream {
   int32_t stream_id = 0;
   uint32_t last_data_time = 0;
   uint32_t last_start_request = 0;
+  uint32_t start_time = 0;  // time of the /start message
+  bool started = false;      // /start received
+  bool data_received = false;
+  bool no_data_warned = false;
   int32_t block_size = 0;
   int32_t codec_delay_samples = 0;
   IPAddress sender_ip;

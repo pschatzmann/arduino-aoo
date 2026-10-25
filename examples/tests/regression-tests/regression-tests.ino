@@ -268,6 +268,35 @@ void testSourceRecoversAfterTimeout() {
   CHECK(receiver.stats().segments_stored > stored);
 }
 
+/// A source which sends /start but no audio data (e.g. because the network
+/// drops fragmented packets) must be reported once and removed after
+/// stream_timeout_ms
+void testSourceWithoutDataIsReportedAndRemoved() {
+  Link link;
+  AOOSender sender(1, link.sender_io);
+  AOOTestReceiver receiver(1, link.receiver_io);
+  auto cfg = receiverConfig(receiver);
+  cfg.no_data_warning_ms = 30;
+  cfg.stream_timeout_ms = 100;
+  receiver.begin(cfg);
+  sender.begin(senderConfig(sender));
+  link.sender_io.drop_filter = [](const uint8_t *data, size_t len) {
+    return aooAddressContains(data, len, "/data");
+  };
+  for (int b = 0; b < 3; b++) writeBlock(sender, b);
+  receiver.process();
+  receiver.postProcess();
+  CHECK_EQ(receiver.getSourceCount(), 1);
+  CHECK_EQ(receiver.stats().no_data_warnings, 0);
+  delay(50);
+  receiver.postProcess();
+  receiver.postProcess();
+  CHECK_EQ(receiver.stats().no_data_warnings, 1);
+  delay(80);
+  receiver.postProcess();
+  CHECK_EQ(receiver.getSourceCount(), 0);
+}
+
 /// With id 0 the receiver auto-assigns its id from the first message: a
 /// message with a different address prefix must not set it to -1
 void testAutoIdIgnoresForeignMessages() {
@@ -654,6 +683,8 @@ const AOOTestCase tests[] = {
     {"ReadBytesAloneProcessesMessages", testReadBytesAloneProcessesMessages},
     {"LateReceiverRequestsStart", testLateReceiverRequestsStart},
     {"SourceRecoversAfterTimeout", testSourceRecoversAfterTimeout},
+    {"SourceWithoutDataIsReportedAndRemoved",
+     testSourceWithoutDataIsReportedAndRemoved},
     {"AutoIdIgnoresForeignMessages", testAutoIdIgnoresForeignMessages},
     {"StreamIdsAreRandom", testStreamIdsAreRandom},
     {"AdaptiveResamplingFollowsBufferFill",

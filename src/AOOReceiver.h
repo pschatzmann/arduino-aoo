@@ -183,6 +183,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     uint32_t resend_requests = 0;
     uint32_t start_requests = 0;
     uint32_t segments_stored = 0;
+    uint32_t no_data_warnings = 0;
   };
   /// Returns the receiver data-path statistics
   const Stats &stats() const { return stats_; }
@@ -389,6 +390,10 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       return false;
     }
 
+    info.start_time = millis();
+    info.started = true;
+    info.no_data_warned = false;
+
     // Add to mixer
     addSourceToMixer(info);
     LOGI("Added source %d to mixer (%d sources)", info.source_id,
@@ -581,13 +586,32 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       }
     }
 
-    // Remove stale sources
+    // Warn about sources which announced a stream but send no audio data
+    if (aoo_cfg.no_data_warning_ms > 0) {
+      uint32_t now = millis();
+      for (auto &p : sources) {
+        if (p->started && !p->data_received && !p->no_data_warned &&
+            (now - p->start_time) > (uint32_t)aoo_cfg.no_data_warning_ms) {
+          p->no_data_warned = true;
+          stats_.no_data_warnings++;
+          LOGW(
+              "Source %d: no audio data received %d ms after /start - are "
+              "the packets bigger than the network MTU? Reduce "
+              "max_packet_size of the sender",
+              p->source_id, aoo_cfg.no_data_warning_ms);
+        }
+      }
+    }
+
+    // Remove stale sources: also the ones which never sent any data
     if (aoo_cfg.stream_timeout_ms > 0) {
       uint32_t now = millis();
       for (int i = sources.size() - 1; i >= 0; i--) {
         auto &p = sources[i];
-        if (p->last_data_time > 0 &&
-            (now - p->last_data_time) > (uint32_t)aoo_cfg.stream_timeout_ms) {
+        bool active = p->last_data_time > 0 || p->started;
+        uint32_t last =
+            p->last_data_time > 0 ? p->last_data_time : p->start_time;
+        if (active && (now - last) > (uint32_t)aoo_cfg.stream_timeout_ms) {
           LOGW("Stream timeout: removing source %d", p->source_id);
           removeSource(i);
         }

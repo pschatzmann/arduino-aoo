@@ -122,6 +122,10 @@ struct AOOReceiverConfig : public AudioInfo {
   float min_source_quality = 50.0f;
   /// Auto-remove sources that haven't sent data for this many ms; 0 = disabled
   int stream_timeout_ms = 5000;
+  /// Log a warning if a source sends no audio data for this many ms after its
+  /// /start message: the data packets are probably bigger than the network
+  /// MTU (fragmented packets are dropped silently); 0 = disabled
+  int no_data_warning_ms = 1000;
   /// Log raw OSC message headers for debugging
   bool log_osc = false;
 };

@@ -74,6 +74,7 @@ A sender is used like any AudioTools output (e.g. with a `StreamCopy` from a mic
 - **Receiver is heavier**: Decoding + format conversion + mixing + audio output. On single-core platforms, use larger block sizes and lower sample rates to reduce per-block overhead.
 - **Serial transport** (`AOOStreamSerial`): Works on any platform with UART. Useful for point-to-point links where WiFi isn't available. Limited by baud rate (~11 KB/s at 115200).
 - **Error correction**: resend requests (default) work well with Opus and 20 ms frames; redundancy (`cfg.redundancy = 2` on the sender) is the most robust against random loss but doubles the bandwidth. See [Choosing the Error Correction](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#choosing-the-error-correction) for measurements.
+- **Packet size**: blocks which do not fit into `max_packet_size` (default 960 bytes) are split into several packets. Keep it below the network MTU: the ESP32 silently drops fragmented UDP packets. See [Packet Size and MTU](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#packet-size-and-mtu).
 - **Interoperability**: tested in both directions against the official aoo library (PCM and Opus, desktop and ESP32-S3 over WiFi).
 
 ## Command Line Tool
