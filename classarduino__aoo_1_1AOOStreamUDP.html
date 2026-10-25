@@ -77,6 +77,8 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pro-methods">Protected Member Functions</a> &#124;
+<a href="#pro-static-methods">Static Protected Member Functions</a> &#124;
 <a href="#pro-attribs">Protected Attributes</a> &#124;
 <a href="classarduino__aoo_1_1AOOStreamUDP-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">AOOStreamUDP&lt; UDP_t &gt; Class Template Reference</div></div>
@@ -114,11 +116,16 @@ Collaboration diagram for AOOStreamUDP&lt; UDP_t &gt;:</div>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pub-methods" class="groupheader"><a id="pub-methods" name="pub-methods"></a>
 Public Member Functions</h2></td></tr>
-<tr class="memitem:a1b2ca12e30b5cfa05754e6d1cea221f4" id="r_a1b2ca12e30b5cfa05754e6d1cea221f4"><td class="memItemLeft" align="right" valign="top"><a id="a1b2ca12e30b5cfa05754e6d1cea221f4" name="a1b2ca12e30b5cfa05754e6d1cea221f4"></a>
-&#160;</td><td class="memItemRight" valign="bottom"><b>AOOStreamUDP</b> ()=default</td></tr>
-<tr class="memdesc:a1b2ca12e30b5cfa05754e6d1cea221f4"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor. <br /></td></tr>
+<tr class="memitem:afffa763132af3e5f5c512d4bdbed55a5" id="r_afffa763132af3e5f5c512d4bdbed55a5"><td class="memItemLeft" align="right" valign="top"><a id="afffa763132af3e5f5c512d4bdbed55a5" name="afffa763132af3e5f5c512d4bdbed55a5"></a>
+&#160;</td><td class="memItemRight" valign="bottom"><b>AOOStreamUDP</b> ()</td></tr>
+<tr class="memdesc:afffa763132af3e5f5c512d4bdbed55a5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Default constructor: creates the UDP object. <br /></td></tr>
 <tr class="memitem:a85c68c9b9803af71dd4c280e34828c90" id="r_a85c68c9b9803af71dd4c280e34828c90"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a85c68c9b9803af71dd4c280e34828c90">AOOStreamUDP</a> (IPAddress address, uint16_t port, bool multicast=false)</td></tr>
 <tr class="memitem:a75af033e626460976a77bca0b2cb163c" id="r_a75af033e626460976a77bca0b2cb163c"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a75af033e626460976a77bca0b2cb163c">AOOStreamUDP</a> (uint16_t port)</td></tr>
+<tr class="memitem:ad81917322b8d374c5c38f1fc8fd2e5e9" id="r_ad81917322b8d374c5c38f1fc8fd2e5e9"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ad81917322b8d374c5c38f1fc8fd2e5e9">AOOStreamUDP</a> (UDP_t &amp;<a class="el" href="#a4252a8f30c11afe27f6701e5010e4648">udp</a>, IPAddress address, uint16_t port, bool multicast=false)</td></tr>
+<tr class="memitem:a77c34dc2f25b3068445c210f6d115099" id="r_a77c34dc2f25b3068445c210f6d115099"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a77c34dc2f25b3068445c210f6d115099">AOOStreamUDP</a> (UDP_t &amp;<a class="el" href="#a4252a8f30c11afe27f6701e5010e4648">udp</a>, uint16_t port)</td></tr>
+<tr class="memitem:a4252a8f30c11afe27f6701e5010e4648" id="r_a4252a8f30c11afe27f6701e5010e4648"><td class="memItemLeft" align="right" valign="top"><a id="a4252a8f30c11afe27f6701e5010e4648" name="a4252a8f30c11afe27f6701e5010e4648"></a>
+UDP_t &amp;&#160;</td><td class="memItemRight" valign="bottom"><b>udp</b> ()</td></tr>
+<tr class="memdesc:a4252a8f30c11afe27f6701e5010e4648"><td class="mdescLeft">&#160;</td><td class="mdescRight">Provides access to the UDP implementation. <br /></td></tr>
 <tr class="memitem:adf4d030f439504647c20011ede7cb273" id="r_adf4d030f439504647c20011ede7cb273"><td class="memItemLeft" align="right" valign="top"><a id="adf4d030f439504647c20011ede7cb273" name="adf4d030f439504647c20011ede7cb273"></a>
 void&#160;</td><td class="memItemRight" valign="bottom"><b>setMulticast</b> (bool flag)</td></tr>
 <tr class="memdesc:adf4d030f439504647c20011ede7cb273"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enables or disables multicast mode. <br /></td></tr>
@@ -172,10 +179,32 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>peek</b> () override</
 size_t&#160;</td><td class="memItemRight" valign="bottom"><b>write</b> (uint8_t) override</td></tr>
 <tr class="memdesc:af9567acfbc37d764d843239312e5b767 inherit pub_methods_classarduino__aoo_1_1AOOStream"><td class="mdescLeft">&#160;</td><td class="mdescRight">Writes a single byte. <br /></td></tr>
 </table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-methods" class="groupheader"><a id="pro-methods" name="pro-methods"></a>
+Protected Member Functions</h2></td></tr>
+<tr class="memitem:a2b7698f0a478be57e4ad694f0a5fd891" id="r_a2b7698f0a478be57e4ad694f0a5fd891"><td class="memItemLeft" align="right" valign="top"><a id="a2b7698f0a478be57e4ad694f0a5fd891" name="a2b7698f0a478be57e4ad694f0a5fd891"></a>
+void&#160;</td><td class="memItemRight" valign="bottom"><b>createUDP</b> ()</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 id="header-pro-static-methods" class="groupheader"><a id="pro-static-methods" name="pro-static-methods"></a>
+Static Protected Member Functions</h2></td></tr>
+<tr class="memitem:ae9c7a39a5125d535280f7b53b77c3369" id="r_ae9c7a39a5125d535280f7b53b77c3369"><td class="memTemplParams" colspan="2"><a id="ae9c7a39a5125d535280f7b53b77c3369" name="ae9c7a39a5125d535280f7b53b77c3369"></a>
+template&lt;typename U&gt; </td></tr>
+<tr class="memitem:ae9c7a39a5125d535280f7b53b77c3369 template"><td class="memItemLeft" align="right" valign="top">static auto&#160;</td><td class="memItemRight" valign="bottom"><b>udpBeginMulticast</b> (U &amp;<a class="el" href="#a4252a8f30c11afe27f6701e5010e4648">udp</a>, IPAddress ip, uint16_t port, int) -&gt; decltype(udp.beginMulticast(ip, port), bool())</td></tr>
+<tr class="memdesc:ae9c7a39a5125d535280f7b53b77c3369"><td class="mdescLeft">&#160;</td><td class="mdescRight">beginMulticast(ip, port) of the Arduino UDP API <br /></td></tr>
+<tr class="memitem:aeb4fd41b5e9ec02b7119375cbb3a12b1" id="r_aeb4fd41b5e9ec02b7119375cbb3a12b1"><td class="memTemplParams" colspan="2"><a id="aeb4fd41b5e9ec02b7119375cbb3a12b1" name="aeb4fd41b5e9ec02b7119375cbb3a12b1"></a>
+template&lt;typename U&gt; </td></tr>
+<tr class="memitem:aeb4fd41b5e9ec02b7119375cbb3a12b1 template"><td class="memItemLeft" align="right" valign="top">static auto&#160;</td><td class="memItemRight" valign="bottom"><b>udpBeginMulticast</b> (U &amp;<a class="el" href="#a4252a8f30c11afe27f6701e5010e4648">udp</a>, IPAddress ip, uint16_t port, long) -&gt; decltype(udp.beginMulticast(IPAddress(), ip, port), bool())</td></tr>
+<tr class="memdesc:aeb4fd41b5e9ec02b7119375cbb3a12b1"><td class="mdescLeft">&#160;</td><td class="mdescRight">ESP8266: beginMulticast(interface, ip, port). <br /></td></tr>
+<tr class="memitem:adf8737f6fb6f5343aa5a5ff6b812a761" id="r_adf8737f6fb6f5343aa5a5ff6b812a761"><td class="memTemplParams" colspan="2"><a id="adf8737f6fb6f5343aa5a5ff6b812a761" name="adf8737f6fb6f5343aa5a5ff6b812a761"></a>
+template&lt;typename U&gt; </td></tr>
+<tr class="memitem:adf8737f6fb6f5343aa5a5ff6b812a761 template"><td class="memItemLeft" align="right" valign="top">static bool&#160;</td><td class="memItemRight" valign="bottom"><b>udpBeginMulticast</b> (U &amp;, IPAddress, uint16_t,...)</td></tr>
+<tr class="memdesc:adf8737f6fb6f5343aa5a5ff6b812a761"><td class="mdescLeft">&#160;</td><td class="mdescRight">UDP implementations without multicast support. <br /></td></tr>
+</table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-pro-attribs" class="groupheader"><a id="pro-attribs" name="pro-attribs"></a>
 Protected Attributes</h2></td></tr>
-<tr class="memitem:aa9146c6ca5329cf45fe264168adcb923" id="r_aa9146c6ca5329cf45fe264168adcb923"><td class="memItemLeft" align="right" valign="top"><a id="aa9146c6ca5329cf45fe264168adcb923" name="aa9146c6ca5329cf45fe264168adcb923"></a>
-UDP_t&#160;</td><td class="memItemRight" valign="bottom"><b>udp</b></td></tr>
+<tr class="memitem:ad9ea3c62b5c84526bf63391523d17230" id="r_ad9ea3c62b5c84526bf63391523d17230"><td class="memItemLeft" align="right" valign="top"><a id="ad9ea3c62b5c84526bf63391523d17230" name="ad9ea3c62b5c84526bf63391523d17230"></a>
+std::unique_ptr&lt; UDP_t &gt;&#160;</td><td class="memItemRight" valign="bottom"><b>owned_udp</b></td></tr>
+<tr class="memitem:a5d90a43ae05d3592685f125ca3b9ee5a" id="r_a5d90a43ae05d3592685f125ca3b9ee5a"><td class="memItemLeft" align="right" valign="top"><a id="a5d90a43ae05d3592685f125ca3b9ee5a" name="a5d90a43ae05d3592685f125ca3b9ee5a"></a>
+UDP_t *&#160;</td><td class="memItemRight" valign="bottom"><b>p_udp</b> = nullptr</td></tr>
 <tr class="memitem:a58db32cc8f03b91fa29bf24bb0a0000c" id="r_a58db32cc8f03b91fa29bf24bb0a0000c"><td class="memItemLeft" align="right" valign="top"><a id="a58db32cc8f03b91fa29bf24bb0a0000c" name="a58db32cc8f03b91fa29bf24bb0a0000c"></a>
 uint16_t&#160;</td><td class="memItemRight" valign="bottom"><b>remote_port_ext</b> = 0</td></tr>
 <tr class="memitem:a7c8171cd15cb1f99e0a352fef95750e3" id="r_a7c8171cd15cb1f99e0a352fef95750e3"><td class="memItemLeft" align="right" valign="top"><a id="a7c8171cd15cb1f99e0a352fef95750e3" name="a7c8171cd15cb1f99e0a352fef95750e3"></a>
@@ -186,17 +215,18 @@ IPAddress&#160;</td><td class="memItemRight" valign="bottom"><b>remote_address_e
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>is_multicast</b> = false</td></tr>
 </table>
 <a name="details" id="details"></a><h2 id="header-details" class="groupheader">Detailed Description</h2>
-<div class="textblock"><div class="compoundTemplParams">template&lt;typename UDP_t = WiFiUDP&gt;<br />
+<div class="textblock"><div class="compoundTemplParams">template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt;<br />
 class arduino_aoo::AOOStreamUDP&lt; UDP_t &gt;</div><p>AOO transport over UDP. </p>
-<p>Each <a class="el" href="#a7597ef706dd1aa590903ce9e095db20a" title="Sends data as a single UDP packet.">write()</a> sends one UDP packet and each <a class="el" href="#a692e2b18b3c2452e38e3f558ad87e9a5" title="Returns the number of bytes available for reading.">available()</a>/read cycle receives one, so UDP's datagram boundaries provide natural OSC message framing. The template parameter selects the underlying UDP implementation (defaults to WiFiUDP). </p>
+<p>Each <a class="el" href="#a7597ef706dd1aa590903ce9e095db20a" title="Sends data as a single UDP packet.">write()</a> sends one UDP packet and each <a class="el" href="#a692e2b18b3c2452e38e3f558ad87e9a5" title="Returns the number of bytes available for reading.">available()</a>/read cycle receives one, so UDP's datagram boundaries provide natural OSC message framing.</p>
+<p>Any UDP implementation which provides the Arduino UDP API can be used (WiFiUDP, EthernetUDP, ...): either provide your UDP object, e.g. <span class="tt"><a class="el" href="classarduino__aoo_1_1AOOStreamUDP.html" title="AOO transport over UDP.">AOOStreamUDP</a>&lt;EthernetUDP&gt; udp(ethernet_udp, 9999)</span>, or let the stream create one of the class indicated by the template parameter (defaults to AOO_DEFAULT_UDP: WiFiUDP where WiFi is available). </p>
 </div><a name="doc-constructors" id="doc-constructors"></a><h2 id="header-doc-constructors" class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a85c68c9b9803af71dd4c280e34828c90" name="a85c68c9b9803af71dd4c280e34828c90"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a85c68c9b9803af71dd4c280e34828c90">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[1/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a85c68c9b9803af71dd4c280e34828c90">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[1/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -223,7 +253,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<dl class="params"><dt>Parameters</dt><dd>
+<p>Creates the UDP object </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramname">address</td><td>remote IP address </td></tr>
     <tr><td class="paramname">port</td><td>remote port </td></tr>
@@ -235,12 +265,12 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 </div>
 </div>
 <a id="a75af033e626460976a77bca0b2cb163c" name="a75af033e626460976a77bca0b2cb163c"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a75af033e626460976a77bca0b2cb163c">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[2/2]</span></h2>
+<h2 class="memtitle"><span class="permalink"><a href="#a75af033e626460976a77bca0b2cb163c">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[2/4]</span></h2>
 
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -258,8 +288,96 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
   </tr>
 </table>
 </div><div class="memdoc">
-<dl class="params"><dt>Parameters</dt><dd>
+<p>Creates the UDP object </p><dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
+    <tr><td class="paramname">port</td><td>local listening port </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="ad81917322b8d374c5c38f1fc8fd2e5e9" name="ad81917322b8d374c5c38f1fc8fd2e5e9"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ad81917322b8d374c5c38f1fc8fd2e5e9">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[3/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">AOOStreamUDP </td>
+          <td>(</td>
+          <td class="paramtype">UDP_t &amp;</td>          <td class="paramname"><span class="paramname"><em>udp</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">IPAddress</td>          <td class="paramname"><span class="paramname"><em>address</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint16_t</td>          <td class="paramname"><span class="paramname"><em>port</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">bool</td>          <td class="paramname"><span class="paramname"><em>multicast</em></span><span class="paramdefsep"> = </span><span class="paramdefval">false</span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Uses the provided UDP object (e.g. an EthernetUDP) </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">udp</td><td>UDP implementation </td></tr>
+    <tr><td class="paramname">address</td><td>remote IP address </td></tr>
+    <tr><td class="paramname">port</td><td>remote port </td></tr>
+    <tr><td class="paramname">multicast</td><td>true to join a multicast group </td></tr>
+  </table>
+  </dd>
+</dl>
+
+</div>
+</div>
+<a id="a77c34dc2f25b3068445c210f6d115099" name="a77c34dc2f25b3068445c210f6d115099"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a77c34dc2f25b3068445c210f6d115099">&#9670;&#160;</a></span>AOOStreamUDP() <span class="overload">[4/4]</span></h2>
+
+<div class="memitem">
+<div class="memproto">
+<div class="memtemplate">
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">AOOStreamUDP </td>
+          <td>(</td>
+          <td class="paramtype">UDP_t &amp;</td>          <td class="paramname"><span class="paramname"><em>udp</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint16_t</td>          <td class="paramname"><span class="paramname"><em>port</em></span>&#160;)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel inline">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Uses the provided UDP object (e.g. an EthernetUDP) </p><dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">udp</td><td>UDP implementation </td></tr>
     <tr><td class="paramname">port</td><td>local listening port </td></tr>
   </table>
   </dd>
@@ -274,7 +392,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -305,7 +423,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -336,7 +454,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -370,7 +488,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -401,7 +519,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -432,7 +550,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -463,7 +581,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -494,7 +612,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -522,7 +640,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
@@ -557,7 +675,7 @@ template&lt;typename UDP_t = WiFiUDP&gt; </div>
 <div class="memitem">
 <div class="memproto">
 <div class="memtemplate">
-template&lt;typename UDP_t = WiFiUDP&gt; </div>
+template&lt;typename UDP_t = AOO_DEFAULT_UDP&gt; </div>
 <table class="mlabels">
   <tr>
   <td class="mlabels-left">
