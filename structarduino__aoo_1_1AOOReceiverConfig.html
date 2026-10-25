@@ -130,6 +130,7 @@ int&#160;</td><td class="memItemRight" valign="bottom"><b>id</b> = 0</td></tr>
 <tr class="memitem:a3e136d4775ebd450d130d39dc6c42330" id="r_a3e136d4775ebd450d130d39dc6c42330"><td class="memItemLeft" align="right" valign="top"><a id="a3e136d4775ebd450d130d39dc6c42330" name="a3e136d4775ebd450d130d39dc6c42330"></a>
 int&#160;</td><td class="memItemRight" valign="bottom"><b>stream_timeout_ms</b> = 5000</td></tr>
 <tr class="memdesc:a3e136d4775ebd450d130d39dc6c42330"><td class="mdescLeft">&#160;</td><td class="mdescRight">Auto-remove sources that haven't sent data for this many ms; 0 = disabled. <br /></td></tr>
+<tr class="memitem:a270efd55aa4ce720a5de159ead2f8859" id="r_a270efd55aa4ce720a5de159ead2f8859"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a270efd55aa4ce720a5de159ead2f8859">no_data_warning_ms</a> = 1000</td></tr>
 <tr class="memitem:a2736d59fe2202fce82aba00f6dd5b433" id="r_a2736d59fe2202fce82aba00f6dd5b433"><td class="memItemLeft" align="right" valign="top"><a id="a2736d59fe2202fce82aba00f6dd5b433" name="a2736d59fe2202fce82aba00f6dd5b433"></a>
 bool&#160;</td><td class="memItemRight" valign="bottom"><b>log_osc</b> = false</td></tr>
 <tr class="memdesc:a2736d59fe2202fce82aba00f6dd5b433"><td class="mdescLeft">&#160;</td><td class="mdescRight">Log raw OSC message headers for debugging. <br /></td></tr>
@@ -210,6 +211,21 @@ bool&#160;</td><td class="memItemRight" valign="bottom"><b>log_osc</b> = false</
       </table>
 </div><div class="memdoc">
 <p>Remove sources whose recent quality (last 100 blocks) is below this percentage. At 50%: a source losing more than half its packets is dropped from the mixer. </p>
+
+</div>
+</div>
+<a id="a270efd55aa4ce720a5de159ead2f8859" name="a270efd55aa4ce720a5de159ead2f8859"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a270efd55aa4ce720a5de159ead2f8859">&#9670;&#160;</a></span>no_data_warning_ms</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">int no_data_warning_ms = 1000</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+<p>Log a warning if a source sends no audio data for this many ms after its /start message: the data packets are probably bigger than the network MTU (fragmented packets are dropped silently); 0 = disabled </p>
 
 </div>
 </div>

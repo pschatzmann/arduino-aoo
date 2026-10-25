@@ -169,6 +169,7 @@ Key considerations</h2>
 <li><b>Receiver is heavier</b>: Decoding + format conversion + mixing + audio output. On single-core platforms, use larger block sizes and lower sample rates to reduce per-block overhead.</li>
 <li><b>Serial transport</b> (<span class="tt">AOOStreamSerial</span>): Works on any platform with UART. Useful for point-to-point links where WiFi isn't available. Limited by baud rate (~11 KB/s at 115200).</li>
 <li><b>Error correction</b>: resend requests (default) work well with Opus and 20 ms frames; redundancy (<span class="tt">cfg.redundancy = 2</span> on the sender) is the most robust against random loss but doubles the bandwidth. See <a href="https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#choosing-the-error-correction">Choosing the Error Correction</a> for measurements.</li>
+<li><b>Packet size</b>: blocks which do not fit into <span class="tt">max_packet_size</span> (default 960 bytes) are split into several packets. Keep it below the network MTU: the ESP32 silently drops fragmented UDP packets. See <a href="https://github.com/pschatzmann/arduino-aoo/wiki/Architecture#packet-size-and-mtu">Packet Size and MTU</a>.</li>
 <li><b>Interoperability</b>: tested in both directions against the official aoo library (PCM and Opus, desktop and ESP32-S3 over WiFi).</li>
 </ul>
 <h1 class="doxsection"><a class="anchor" id="autotoc_md9"></a>

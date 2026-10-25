@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['sink_5ftargets_0',['sink_targets',['../structarduino__aoo_1_1AOOSenderConfig.html#a67bd4b081d1bddb92142ca4ec36ecc79',1,'arduino_aoo::AOOSenderConfig']]],
-  ['start_5frequest_5finterval_5fms_1',['start_request_interval_ms',['../classarduino__aoo_1_1AOOReceiver.html#ae7e70a2c58a15c247e913a9ca0117a16',1,'arduino_aoo::AOOReceiver']]],
-  ['stream_5ftimeout_5fms_2',['stream_timeout_ms',['../structarduino__aoo_1_1AOOReceiverConfig.html#a3e136d4775ebd450d130d39dc6c42330',1,'arduino_aoo::AOOReceiverConfig']]]
+  ['recovery_5fmax_5frequests_0',['recovery_max_requests',['../structarduino__aoo_1_1AOOReceiverConfig.html#a50d24278bc9031c01ae7e0105a04cdbb',1,'arduino_aoo::AOOReceiverConfig']]],
+  ['recovery_5fwait_5fms_1',['recovery_wait_ms',['../structarduino__aoo_1_1AOOReceiverConfig.html#ac63ec71a9460fce6955fb20ce01d401e',1,'arduino_aoo::AOOReceiverConfig']]],
+  ['redundancy_2',['redundancy',['../structarduino__aoo_1_1AOOSenderConfig.html#ad83cd74cb79ac2f5c4d251bbc711a6ad',1,'arduino_aoo::AOOSenderConfig']]],
+  ['resample_5fupdate_5fms_3',['resample_update_ms',['../structarduino__aoo_1_1AOOReceiverConfig.html#ab0874310583766af2f5c1fbca14437bc',1,'arduino_aoo::AOOReceiverConfig']]]
 ];

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['output_5ffollows_5fsource_0',['output_follows_source',['../structarduino__aoo_1_1AOOReceiverConfig.html#a75a98dd7baa71747b74bb347b20831dd',1,'arduino_aoo::AOOReceiverConfig']]]
+  ['no_5fdata_5fwarning_5fms_0',['no_data_warning_ms',['../structarduino__aoo_1_1AOOReceiverConfig.html#a270efd55aa4ce720a5de159ead2f8859',1,'arduino_aoo::AOOReceiverConfig']]]
 ];
