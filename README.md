@@ -2,7 +2,7 @@
 
 "Audio over OSC" aka AoO is a message-based real-time audio streaming system using Open Sound Control as its wire format. It sends audio from arbitrary senders to arbitrary receivers on demand.
 
-This is a header-only C++ implementation using the Arduino Networking API for communication and the [Arduino Audio Tools](https://github.com/pschatzmann/arduino-audio-tools) library for audio processing. It is compatible with the [official AoO library](https://git.iem.at/aoo/aoo).
+This is a header-only C++ implementation using the Arduino Networking API for communication and the [Arduino Audio Tools](https://github.com/pschatzmann/arduino-audio-tools) library for audio processing. It is compatible with the [official AoO library](https://git.iem.at/aoo/aoo), so a microcontroller can also exchange audio with Pure Data, SuperCollider or any other application using it.
 
 ## Key Features
 
@@ -13,6 +13,7 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 - **Automatic packet recovery** — detects gaps, requests resends, quality-gated to avoid flooding
 - **Adaptive resampling** — compensates clock drift between sender and receiver
 - **FreeRTOS task support** — `AOOReceiverTask` processes UDP on a separate core (ESP32)
+- **Late joining** — a receiver which missed the start of a stream requests the format from the sender
 - **Binary + OSC interop** — compatible with the official aoo library's binary data format
 - **Multi-receiver addressing** — one sender can target multiple receivers with per-target IP
 - **Invite/uninvite** — demand-driven streaming: receivers request senders to start/stop
@@ -26,7 +27,18 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 |-------|-------------|
 | `AOOSender` | Sends audio over the network. Implements `AudioOutput` — plug into `StreamCopy`. |
 | `AOOReceiver` | Receives and decodes audio from one or more senders. Implements `AudioStream` — pull decoded audio via `readBytes()`. |
-| `AOOReceiverTask` | ESP32 variant that processes UDP in a separate FreeRTOS task for zero packet loss. |
+| `AOOReceiverTask` | Variant of `AOOReceiver` which receives the UDP messages in a separate task: on a dual-core ESP32 the reception is not blocked while `loop()` is busy. |
+
+## Examples
+
+A sender is used like any AudioTools output (e.g. with a `StreamCopy` from a microphone or a generator) and a receiver like any AudioTools source (e.g. with a `StreamCopy` to I2S). The receiver converts all senders to the output format defined in its configuration. See the [Quick Start](https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start) for the code and the [examples](https://github.com/pschatzmann/arduino-aoo/tree/main/examples) for the complete sketches:
+
+| Example | Description |
+|---------|-------------|
+| [aoo-sender](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-sender) | sends a sine wave with Opus |
+| [aoo-receiver](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver) | receives PCM or Opus and prints it as CSV (replace the output with I2S to play it) |
+| [aoo-receiver-task](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver-task) | the same with `AOOReceiverTask` |
+| [tests](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/tests) | automated tests, which also run on a microcontroller |
 
 ## Transport
 
@@ -80,18 +92,33 @@ See [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desk
 - [Quick Start & Examples](https://github.com/pschatzmann/arduino-aoo/wiki/Quick-Start)
 - [Architecture & Features](https://github.com/pschatzmann/arduino-aoo/wiki/Architecture)
 - [Desktop Build & Tests](https://github.com/pschatzmann/arduino-aoo/wiki/Desktop-Build)
+- [Class Documentation](https://pschatzmann.github.io/arduino-aoo/group__main.html)
 - [AoO V2.0 Protocol Specification](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md)
 - [OSC V1.0 Specification](https://opensoundcontrol.stanford.edu/spec-1_0.html)
 
 ## Installation in Arduino
 
-Download as ZIP and use Arduino IDE: Sketch -> Include Library -> Add .ZIP Library.
+This library needs the [Arduino Audio Tools](https://github.com/pschatzmann/arduino-audio-tools) and, for the Opus codec, [arduino-libopus](https://github.com/pschatzmann/arduino-libopus).
 
-Or clone the libraries into your Arduino libraries folder: 
+### Installation with ZIP files
+
+1. Download the ZIP files of the libraries from GitHub (the green **Code** button -> **Download ZIP**), or directly:
+   - [arduino-audio-tools](https://github.com/pschatzmann/arduino-audio-tools/archive/refs/heads/main.zip)
+   - [arduino-aoo](https://github.com/pschatzmann/arduino-aoo/archive/refs/heads/main.zip)
+   - optional: [arduino-libopus](https://github.com/pschatzmann/arduino-libopus/archive/refs/heads/main.zip)
+2. In the Arduino IDE select **Sketch -> Include Library -> Add .ZIP Library...** and select each downloaded ZIP file (don't unpack them).
+3. Restart the Arduino IDE: the examples are then available in **File -> Examples -> Audio Over OSC**.
+
+To update a library, delete its folder (e.g. `arduino-aoo-main`) in the `libraries` folder of your sketchbook and add the new ZIP file again.
+
+### Installation with Git
+
+Alternatively clone the libraries into your Arduino libraries folder: this makes the updates easier (`git pull`):
 
 ```bash
 cd ~/Documents/Arduino/libraries
 git clone https://github.com/pschatzmann/arduino-audio-tools.git
 git clone https://github.com/pschatzmann/arduino-aoo.git
+# optional: for the Opus codec
+git clone https://github.com/pschatzmann/arduino-libopus.git
 ```
-

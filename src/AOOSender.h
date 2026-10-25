@@ -72,6 +72,14 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     return result;
   }
 
+  /// Starts the processing with the indicated audio format (and the other
+  /// settings from the current configuration)
+  bool begin(AudioInfo info) override {
+    AOOSenderConfig config = defaultConfig();
+    config.copyFrom(info);
+    return begin(config);
+  }
+
   /// Starts the processing with full configuration
   bool begin(AOOSenderConfig cfg) {
     this->cfg = cfg;
