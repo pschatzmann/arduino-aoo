@@ -1,0 +1,9 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" title=" " alt="" coords="5,32,74,60"/>
+<area shape="rect" id="Node000001" href="$classarduino__aoo_1_1AOOStream.html" title="Abstract transport stream for AOO (Audio Over OSC)." alt="" coords="122,32,219,60"/>
+<area shape="poly" id="edge23_Node000000_Node000001" title=" " alt="" coords="89,43,124,45,119,47,90,48"/>
+<area shape="rect" id="Node000002" href="$classarduino__aoo_1_1AOOStreamSerial.html" title="AOO transport over a serial link using HDLC framing." alt="" coords="298,5,432,33"/>
+<area shape="poly" id="edge24_Node000001_Node000002" title=" " alt="" coords="234,34,300,28,294,29,235,40"/>
+<area shape="rect" id="Node000003" href="$classarduino__aoo_1_1AOOStreamUDP.html" title="AOO transport over UDP." alt="" coords="267,57,462,85"/>
+<area shape="poly" id="edge25_Node000001_Node000003" title=" " alt="" coords="235,51,269,58,264,58,234,57"/>
+</map>

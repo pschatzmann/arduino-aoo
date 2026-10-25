@@ -1,0 +1,13 @@
+<map id="AOOMessageHandler" name="AOOMessageHandler">
+<area shape="rect" id="Node000001" title="Common message parsing, routing, and ping/pong handling for AOO." alt="" coords="193,183,352,211"/>
+<area shape="rect" id="Node000002" href="$classarduino__aoo_1_1AOOStream.html" title="Abstract transport stream for AOO (Audio Over OSC)." alt="" coords="5,82,103,110"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="94,114,184,157,242,182,237,183,182,161,93,120"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="20,5,88,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="55,46,57,82,51,82,53,51"/>
+<area shape="rect" id="Node000004" href="$classarduino__aoo_1_1AOOMessageListener.html" title="Virtual listener interface for AOO message events." alt="" coords="127,82,288,110"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="220,122,240,157,261,183,256,182,236,161,217,127"/>
+<area shape="rect" id="Node000005" href="$structarduino__aoo_1_1AOOMessageHandler_1_1Stats.html" title=" " alt="" coords="312,82,366,110"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="331,123,312,161,290,185,287,180,308,157,327,126"/>
+<area shape="rect" id="Node000006" href="$classarduino__aoo_1_1AOOClockSync.html" title="NTP&#45;style clock synchronization using AOO ping/pong round&#45;trips." alt="" coords="390,82,507,110"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="428,120,404,143,378,161,323,185,321,180,375,157,401,139,423,122"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="AOODecline" name="AOODecline">
+<area shape="rect" id="Node000001" title="Source declines a sink&#39;s invitation: /aoo/sink/&lt;sink&gt;/decline ,ii &lt;source&gt; &lt;stream_id&gt;." alt="" coords="10,81,109,109"/>
+<area shape="rect" id="Node000002" href="$structarduino__aoo_1_1AOOMessage.html" title="abstract aoo protocol message" alt="" coords="5,5,114,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="61,47,62,81,57,80,58,51"/>
+</map>

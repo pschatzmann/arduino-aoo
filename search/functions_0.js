@@ -1,0 +1,23 @@
+var searchData=
+[
+  ['acceptssegment_0',['acceptsSegment',['../classarduino__aoo_1_1IndexedRingBufferStreamView.html#af33aa8cb53c237123a0ced56aa6cce18',1,'arduino_aoo::IndexedRingBufferStreamView']]],
+  ['activecount_1',['activeCount',['../classarduino__aoo_1_1IndexedRingBuffer.html#a5bd1233c04d1c7cced25d2e672b2e632',1,'arduino_aoo::IndexedRingBuffer']]],
+  ['adddecoder_2',['addDecoder',['../classarduino__aoo_1_1AOOReceiver.html#a75ff8e0ba64ad5325a3b14509a3af2c3',1,'arduino_aoo::AOOReceiver']]],
+  ['addsinktarget_3',['addSinkTarget',['../classarduino__aoo_1_1AOOSender.html#a3a1ac11391d861aa42546527bc7b580a',1,'arduino_aoo::AOOSender']]],
+  ['aoo_5fparse_5fbin_5fdata_4',['aoo_parse_bin_data',['../group__aoo-protocol.html#gaa90a512e6ef3bfd14a6fa6dfd32f72aa',1,'arduino_aoo']]],
+  ['aoo_5freply_5',['aoo_reply',['../classarduino__aoo_1_1AOOSender.html#aef48b558bc994fc7dfcb07a53f35b7ec',1,'arduino_aoo::AOOSender']]],
+  ['aoo_5fresend_5fdata_6',['aoo_resend_data',['../classarduino__aoo_1_1AOOSender.html#a4c37ca5a155f32812228453e4171aba7',1,'arduino_aoo::AOOSender']]],
+  ['aoo_5fsend_5fblock_7',['aoo_send_block',['../classarduino__aoo_1_1AOOSender.html#a8bf92f43d00b38093b4e1cfaac18b3ee',1,'arduino_aoo::AOOSender']]],
+  ['aoo_5fsend_5fmessage_8',['aoo_send_message',['../classarduino__aoo_1_1AOOSender.html#af35192c633bea55fe52304503b06d185',1,'arduino_aoo::AOOSender']]],
+  ['aooclocksync_9',['AOOClockSync',['../classarduino__aoo_1_1AOOClockSync.html#a34664ce67d73530535c4de9656e8323d',1,'arduino_aoo::AOOClockSync']]],
+  ['aoopacketrecovery_10',['AOOPacketRecovery',['../classarduino__aoo_1_1AOOPacketRecovery.html#af9b3b2a1e6ee7ffe1aeb640e0a2dd7dd',1,'arduino_aoo::AOOPacketRecovery']]],
+  ['aooreceiver_11',['AOOReceiver',['../classarduino__aoo_1_1AOOReceiver.html#a12777b64a9ab072a5aa9aa503cefac27',1,'arduino_aoo::AOOReceiver::AOOReceiver()'],['../classarduino__aoo_1_1AOOReceiver.html#a579794aed945fdfa8f4843a0c468fc02',1,'arduino_aoo::AOOReceiver::AOOReceiver(int id, AOOStream &amp;io)']]],
+  ['aooreceivertask_12',['AOOReceiverTask',['../classarduino__aoo_1_1AOOReceiverTask.html#a319485393df57514d503f2beee269b74',1,'arduino_aoo::AOOReceiverTask::AOOReceiverTask()'],['../classarduino__aoo_1_1AOOReceiverTask.html#af07fd439107f414af53c16723800133c',1,'arduino_aoo::AOOReceiverTask::AOOReceiverTask(int id, AOOStream &amp;io)']]],
+  ['aoosender_13',['AOOSender',['../classarduino__aoo_1_1AOOSender.html#a81247cabd052fb72fdd013652dc68907',1,'arduino_aoo::AOOSender']]],
+  ['aoosourceline_14',['AOOSourceLine',['../classarduino__aoo_1_1AOOSourceLine.html#aeb59d392af0a96edc8119157b3d351c9',1,'arduino_aoo::AOOSourceLine']]],
+  ['aoostreamserial_15',['AOOStreamSerial',['../classarduino__aoo_1_1AOOStreamSerial.html#af24d43ea24fb5ae75b8df856c047bc71',1,'arduino_aoo::AOOStreamSerial']]],
+  ['aoostreamudp_16',['AOOStreamUDP',['../classarduino__aoo_1_1AOOStreamUDP.html#a1b2ca12e30b5cfa05754e6d1cea221f4',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP()=default'],['../classarduino__aoo_1_1AOOStreamUDP.html#a85c68c9b9803af71dd4c280e34828c90',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP(IPAddress address, uint16_t port, bool multicast=false)'],['../classarduino__aoo_1_1AOOStreamUDP.html#a75af033e626460976a77bca0b2cb163c',1,'arduino_aoo::AOOStreamUDP::AOOStreamUDP(uint16_t port)']]],
+  ['audioinfo_17',['audioInfo',['../classarduino__aoo_1_1AOOReceiver.html#aed4bf0d5ce93f27242be485943d0b37d',1,'arduino_aoo::AOOReceiver']]],
+  ['available_18',['available',['../classarduino__aoo_1_1IndexedRingBufferStreamView.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::IndexedRingBufferStreamView::available()'],['../classarduino__aoo_1_1AOOSourceLine.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOSourceLine::available()'],['../classarduino__aoo_1_1AOOStream.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOStream::available()'],['../classarduino__aoo_1_1AOOStreamUDP.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOStreamUDP::available()'],['../classarduino__aoo_1_1AOOStreamSerial.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOStreamSerial::available()'],['../classarduino__aoo_1_1AOOReceiver.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOReceiver::available()'],['../classarduino__aoo_1_1AOOReceiverTask.html#a692e2b18b3c2452e38e3f558ad87e9a5',1,'arduino_aoo::AOOReceiverTask::available()']]],
+  ['availableforwrite_19',['availableForWrite',['../classarduino__aoo_1_1AOOStreamUDP.html#a87b51853b7bf1bc90d9efa9f3b8d4fea',1,'arduino_aoo::AOOStreamUDP::availableForWrite()'],['../classarduino__aoo_1_1AOOStreamSerial.html#a87b51853b7bf1bc90d9efa9f3b8d4fea',1,'arduino_aoo::AOOStreamSerial::availableForWrite()']]]
+];

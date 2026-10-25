@@ -1,0 +1,5 @@
+<map id="AOOData" name="AOOData">
+<area shape="rect" id="Node000001" title="deliver audio data, large blocks are split across several frames: /aoo/sink/&lt;sink&gt;/data ,..." alt="" coords="19,81,100,109"/>
+<area shape="rect" id="Node000002" href="$structarduino__aoo_1_1AOOMessage.html" title="abstract aoo protocol message" alt="" coords="5,5,114,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="61,47,62,81,57,80,58,51"/>
+</map>

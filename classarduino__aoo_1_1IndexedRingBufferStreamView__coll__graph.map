@@ -1,0 +1,7 @@
+<map id="IndexedRingBufferStreamView" name="IndexedRingBufferStreamView">
+<area shape="rect" id="Node000001" title="Stream API wrapper for IndexedRingBuffer that reads encoded segments sequentially by sequence number...." alt="" coords="35,123,254,151"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,14,111,42"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="79,51,137,122,131,123,77,56"/>
+<area shape="rect" id="Node000003" href="$classarduino__aoo_1_1IndexedRingBuffer.html" title=" " alt="" coords="134,5,328,50"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="207,61,157,125,153,121,202,63"/>
+</map>

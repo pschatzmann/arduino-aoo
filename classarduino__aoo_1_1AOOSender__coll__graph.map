@@ -1,0 +1,37 @@
+<map id="AOOSender" name="AOOSender">
+<area shape="rect" id="Node000001" title="Audio source for AOO (Audio Over OSC) which is used to send audio data via the indicated output strea..." alt="" coords="762,535,857,563"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="152,92,254,120"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="224,129,303,218,355,268,412,313,440,329,466,339,514,349,538,355,561,363,584,378,607,400,615,413,619,426,619,450,619,473,622,484,630,495,647,503,680,514,764,538,758,538,679,519,645,508,627,499,618,486,613,474,613,450,613,427,610,415,603,404,580,382,558,368,536,360,513,354,464,344,437,334,409,318,351,272,299,221,224,135"/>
+<area shape="rect" id="Node000012" href="$classarduino__aoo_1_1AOOSender_1_1EncoderOutput.html" title="Write output of encoder to the defined output stream." alt="" coords="449,92,566,120"/>
+<area shape="poly" id="edge14_Node000012_Node000002" title=" " alt="" coords="269,104,450,104,446,108,271,109"/>
+<area shape="rect" id="Node000013" href="$classarduino__aoo_1_1AOOSender.html" title="Audio source for AOO (Audio Over OSC) which is used to send audio data via the indicated output strea..." alt="" coords="762,178,857,205"/>
+<area shape="poly" id="edge16_Node000013_Node000002" title=" " alt="" coords="245,83,341,45,402,26,468,12,538,4,608,5,676,19,708,31,739,48,755,61,769,76,790,112,802,148,808,178,803,176,797,150,785,114,765,79,752,64,736,52,706,36,674,24,607,11,538,9,469,17,403,32,342,50,249,87"/>
+<area shape="rect" id="Node000003" href="$classarduino__aoo_1_1AOOMessageListener.html" title="Virtual listener interface for AOO message events." alt="" coords="123,608,283,636"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="264,639,284,646,308,657,430,694,482,708,531,717,578,718,627,710,679,692,736,661,761,640,780,613,802,565,806,561,784,615,765,643,739,666,681,697,628,715,579,723,530,722,481,714,428,700,306,662,282,651,264,644"/>
+<area shape="rect" id="Node000009" href="$classarduino__aoo_1_1AOOMessageHandler.html" title="Common message parsing, routing, and ping/pong handling for AOO." alt="" coords="428,519,587,547"/>
+<area shape="poly" id="edge10_Node000009_Node000003" title=" " alt="" coords="272,601,386,569,465,546,460,548,387,574,273,606"/>
+<area shape="poly" id="edge17_Node000013_Node000003" title=" " alt="" coords="299,617,385,611,475,600,554,582,583,570,603,556,616,536,621,516,620,496,616,475,609,432,613,410,627,387,640,375,653,369,681,366,709,364,722,359,736,349,764,314,784,274,796,235,804,208,807,203,801,236,789,276,768,317,739,353,725,364,710,369,681,371,655,374,643,379,631,390,618,412,615,432,621,474,625,495,626,517,621,539,607,560,585,575,555,588,476,606,385,617,299,622"/>
+<area shape="rect" id="Node000004" href="$structarduino__aoo_1_1AOOSenderConfig.html" title="Configuration for AOOSender." alt="" coords="439,636,576,664"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="591,656,664,652,702,644,736,630,757,616,774,598,798,564,803,562,779,601,760,620,739,635,703,649,665,657,591,661"/>
+<area shape="poly" id="edge18_Node000013_Node000004" title=" " alt="" coords="576,627,603,604,614,584,617,564,612,524,608,485,613,464,627,443,640,432,654,426,682,426,710,425,723,421,736,412,756,388,772,361,792,302,802,246,806,208,809,203,808,247,798,303,776,363,760,391,739,416,725,426,710,431,682,431,655,431,643,436,631,446,618,466,614,485,618,524,623,564,619,586,607,608,579,631"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="162,660,245,688"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="260,667,442,655,436,656,260,672"/>
+<area shape="rect" id="Node000006" href="$classarduino__aoo_1_1AOOStream.html" title="Abstract transport stream for AOO (Audio Over OSC)." alt="" coords="154,370,252,397"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="266,377,327,381,358,388,388,400,401,412,412,425,463,452,508,465,553,478,606,505,618,517,630,528,663,539,697,546,764,552,759,552,696,551,661,544,627,532,614,521,603,510,551,483,506,471,461,457,409,429,397,416,385,404,357,394,326,387,268,382"/>
+<area shape="poly" id="edge9_Node000009_Node000006" title=" " alt="" coords="255,401,320,431,388,469,412,489,468,518,463,519,409,494,385,474,318,436,255,406"/>
+<area shape="poly" id="edge19_Node000013_Node000006" title=" " alt="" coords="231,358,309,301,358,270,409,244,468,219,516,204,565,194,628,185,698,181,764,186,759,187,698,186,629,190,566,199,517,209,470,224,411,248,361,275,312,305,235,362"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="5,370,74,397"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="88,381,156,382,152,385,90,386"/>
+<area shape="rect" id="Node000008" href="$classarduino__aoo_1_1IndexedRingBuffer.html" title=" " alt="" coords="410,258,605,303"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="557,310,585,335,607,363,617,393,616,420,617,444,622,456,631,468,655,485,679,488,707,489,739,498,768,515,793,535,788,534,765,519,737,503,706,495,679,494,653,489,627,472,617,458,612,445,611,420,611,394,602,366,581,338,556,315"/>
+<area shape="poly" id="edge20_Node000013_Node000008" title=" " alt="" coords="595,251,628,241,737,210,764,204,759,207,738,215,629,246,597,256"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="543,552,584,574,629,590,683,599,707,597,737,590,766,577,789,564,794,562,768,582,739,595,708,602,683,604,628,595,582,579,542,558"/>
+<area shape="poly" id="edge21_Node000013_Node000009" title=" " alt="" coords="580,509,603,490,616,465,619,441,617,418,612,394,607,370,605,347,611,322,627,298,640,286,653,281,680,280,707,281,721,278,736,271,756,256,773,238,798,207,802,204,777,242,759,260,739,276,723,283,708,286,680,285,654,286,643,291,631,301,616,324,611,347,612,370,617,393,622,417,625,441,621,467,607,493,583,514"/>
+<area shape="rect" id="Node000010" href="$structarduino__aoo_1_1AOOMessageHandler_1_1Stats.html" title=" " alt="" coords="176,527,230,555"/>
+<area shape="poly" id="edge11_Node000009_Node000010" title=" " alt="" coords="245,538,386,536,430,537,425,538,386,542,246,543"/>
+<area shape="rect" id="Node000011" href="$classarduino__aoo_1_1AOOClockSync.html" title="NTP&#45;style clock synchronization using AOO ping/pong round&#45;trips." alt="" coords="144,471,262,499"/>
+<area shape="poly" id="edge12_Node000009_Node000011" title=" " alt="" coords="277,494,430,519,425,521,277,499"/>
+<area shape="poly" id="edge13_Node000001_Node000012" title=" " alt="" coords="580,117,607,136,622,162,627,186,626,210,621,233,614,279,618,303,631,328,643,341,655,349,682,356,710,363,725,371,740,383,767,421,787,464,808,536,803,534,782,466,763,424,736,387,722,375,708,368,680,362,653,354,639,345,626,331,613,305,609,280,616,232,620,209,622,186,617,163,603,140,580,122"/>
+<area shape="poly" id="edge22_Node000013_Node000012" title=" " alt="" coords="581,118,739,152,788,177,783,178,737,157,582,123"/>
+<area shape="poly" id="edge15_Node000012_Node000013" title=" " alt="" coords="793,163,771,129,755,113,736,100,692,86,644,82,598,86,558,94,556,89,597,81,644,77,693,81,739,96,758,109,775,126,798,164"/>
+</map>

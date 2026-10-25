@@ -1,0 +1,5 @@
+<map id="AOOPongSource" name="AOOPongSource">
+<area shape="rect" id="Node000001" title="pong message: /aoo/src/&lt;source&gt;/pong ,ittt &lt;sink&gt; &lt;t1&gt; &lt;t2&gt; &lt;t3&gt;" alt="" coords="5,81,132,109"/>
+<area shape="rect" id="Node000002" href="$structarduino__aoo_1_1AOOMessage.html" title="abstract aoo protocol message" alt="" coords="14,5,123,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="70,47,71,81,66,80,67,51"/>
+</map>

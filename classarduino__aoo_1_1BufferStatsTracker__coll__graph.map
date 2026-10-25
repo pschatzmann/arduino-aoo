@@ -1,0 +1,5 @@
+<map id="BufferStatsTracker" name="BufferStatsTracker">
+<area shape="rect" id="Node000001" title="Tracks statistics for an IndexedRingBuffer used as encoded data store. Call received() for each store..." alt="" coords="5,106,145,134"/>
+<area shape="rect" id="Node000002" href="$structarduino__aoo_1_1BufferStats.html" title="Statistics for an IndexedRingBuffer tracking encoded audio segments." alt="" coords="28,5,122,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="77,47,78,106,72,105,73,50"/>
+</map>

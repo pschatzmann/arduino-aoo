@@ -1,0 +1,5 @@
+<map id="AOOResendData" name="AOOResendData">
+<area shape="rect" id="Node000001" title="request dropped packets: /aoo/src/&lt;src&gt;/data ,ii[ii]* &lt;sink&gt; &lt;stream_id&gt; [&lt;seq&gt; &lt;frame&gt;]*" alt="" coords="5,81,135,109"/>
+<area shape="rect" id="Node000002" href="$structarduino__aoo_1_1AOOMessage.html" title="abstract aoo protocol message" alt="" coords="16,5,124,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="72,47,73,81,67,80,68,51"/>
+</map>

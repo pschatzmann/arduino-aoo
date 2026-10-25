@@ -1,0 +1,6 @@
+<map id="Audio Over OSC" name="Audio Over OSC">
+<area shape="rect" id="Node000002" href="$group__aoo.html" title="Public API for Audio Over OSC." alt="" coords="207,5,253,33"/>
+<area shape="rect" id="Node000004" href="$group__aoo-protocol.html" title="AOO Message parsing and sending." alt="" coords="178,57,282,85"/>
+<area shape="rect" id="Node000003" href="$group__aoo-utils.html" title="AOO Utils are helper classes to support the AOO protocol." alt="" coords="190,109,270,137"/>
+<area shape="rect" id="Node000001" title="Audio over OSC (AOO) is a protocol to send audio data over OSC." alt="" coords="5,57,130,85"/>
+</map>

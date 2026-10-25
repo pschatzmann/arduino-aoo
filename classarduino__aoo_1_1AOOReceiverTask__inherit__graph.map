@@ -1,0 +1,9 @@
+<map id="AOOReceiverTask" name="AOOReceiverTask">
+<area shape="rect" id="Node000001" title="AOOReceiver that processes UDP messages in a separate FreeRTOS task." alt="" coords="68,157,205,184"/>
+<area shape="rect" id="Node000002" href="$classarduino__aoo_1_1AOOReceiver.html" title="Pull&#45;based audio sink for AOO (Audio Over OSC)." alt="" coords="83,81,190,109"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="139,123,139,157,134,155,135,126"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="5,5,111,33"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="84,41,125,80,120,81,83,47"/>
+<area shape="rect" id="Node000004" href="$classarduino__aoo_1_1AOOMessageListener.html" title="Virtual listener interface for AOO message events." alt="" coords="135,5,296,33"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="192,42,152,83,149,79,188,46"/>
+</map>

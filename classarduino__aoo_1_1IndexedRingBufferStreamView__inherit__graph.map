@@ -1,0 +1,5 @@
+<map id="IndexedRingBufferStreamView" name="IndexedRingBufferStreamView">
+<area shape="rect" id="Node000001" title="Stream API wrapper for IndexedRingBuffer that reads encoded segments sequentially by sequence number...." alt="" coords="5,81,225,109"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="62,5,168,33"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="117,47,117,82,113,79,113,51"/>
+</map>
