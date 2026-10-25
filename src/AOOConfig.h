@@ -49,8 +49,11 @@ struct AOOSenderConfig : public AudioInfo {
   std::vector<AOOSinkTarget> sink_targets;
   /// How many sent blocks to keep in the resend buffer (0 = disabled)
   int buffer_size = 50;
-  /// Maximum encoded frame size in bytes before multi-frame splitting
-  int max_frame_size = 1400;
+  /// Maximum size of a /data message (UDP payload) in bytes: bigger blocks are
+  /// split into several frames. Keep it below the network MTU minus 28 bytes
+  /// for the IP and UDP headers, because many receivers (e.g. the ESP32-P4)
+  /// drop IP fragments. The official aoo library uses 512.
+  int max_packet_size = 960;
   /// Number of times each block is sent (1 = no redundancy, 2+ for loss tolerance)
   int redundancy = 1;
   /// Codec delay in samples (communicated to sinks for alignment)

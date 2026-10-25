@@ -22,7 +22,7 @@ namespace arduino_aoo {
  * make sure that the writes are throttled by the decoded data rate, otherwise
  * the sink will run into buffer overflows.
  *
- * Blocks which are bigger than max_frame_size are split into several frames.
+ * Blocks which do not fit into max_packet_size are split into several frames.
  * The sent blocks are kept in a buffer (buffer_size blocks) to answer resend
  * requests. The audio can be sent to several sinks (sink_targets); sinks can
  * also add themselves with an invitation or a /start request.
@@ -345,16 +345,21 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     return ok;
   }
 
-  /// Sends a block as one or more /data messages of at most max_frame_size
-  /// bytes; all frames except the last one have the size max_frame_size.
+  /// Sends a block as one or more /data messages of at most max_packet_size
+  /// bytes; the block is split into frames of (almost) equal size, all
+  /// frames except the last one have the same size.
   /// With reply = true the messages go to the sender of the last request.
   bool aoo_send_block(int32_t sink, int32_t seq, const uint8_t* audioData,
                       size_t len, uint64_t ts, bool reply) {
-    int32_t num_frames = (len + cfg.max_frame_size - 1) / cfg.max_frame_size;
+    AOOData header;
+    header.sink_id = sink;
+    int32_t max_frame_len =
+        max(cfg.max_packet_size - (int32_t)header.headerSize(), (int32_t)16);
+    int32_t num_frames = (len + max_frame_len - 1) / max_frame_len;
+    int32_t frame_size = num_frames > 0 ? (len + num_frames - 1) / num_frames : 0;
     for (int32_t i = 0; i < num_frames; i++) {
-      int32_t offset = i * cfg.max_frame_size;
-      int32_t frame_len =
-          min((int32_t)(len - offset), (int32_t)cfg.max_frame_size);
+      int32_t offset = i * frame_size;
+      int32_t frame_len = min((int32_t)(len - offset), frame_size);
 
       AOOData aoo_data;
       aoo_data.source_id = cfg.id;

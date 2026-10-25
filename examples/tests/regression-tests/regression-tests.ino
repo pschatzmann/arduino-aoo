@@ -69,20 +69,41 @@ void testPcmStreamingIsBitExact() {
   CHECK_EQ(rampMismatches(out), 0);
 }
 
-/// The sender splits at max_frame_size, the receiver must use the same
-/// offsets when reassembling
+/// The sender splits blocks into frames which fit into max_packet_size, the
+/// receiver must use the same offsets when reassembling
 void testMultiFrameContentIsCorrect() {
   Link link;
   AOOSender sender(1, link.sender_io);
   AOOReceiver receiver(1, link.receiver_io);
   receiver.begin(receiverConfig(receiver));
   auto cfg = senderConfig(sender);
-  cfg.max_frame_size = 100;  // 256 byte blocks -> 100 + 100 + 56
+  cfg.max_packet_size = 200;  // 256 byte blocks -> 86 + 86 + 84
   sender.begin(cfg);
   for (int b = 0; b < 6; b++) writeBlock(sender, b);
   auto out = pullSamples(receiver, 4 * BLOCK_SAMPLES);
   CHECK_EQ(out.size(), 4 * BLOCK_SAMPLES);
   CHECK_EQ(rampMismatches(out), 0);
+}
+
+/// With the default configuration no packet may exceed max_packet_size: a
+/// 1024 byte PCM block (256 stereo frames) used to be sent as one 1060 byte
+/// packet, which was fragmented on a network with an MTU of 1024 and then
+/// dropped by the ESP32-P4
+void testDefaultPacketsFitMaxPacketSize() {
+  Link link;
+  AOOSender sender(1, link.sender_io);
+  auto cfg = senderConfig(sender);
+  sender.begin(cfg);
+  int16_t block[512] = {0};
+  for (int b = 0; b < 4; b++) sender.write((const uint8_t *)block, sizeof(block));
+  int frames = 0;
+  for (auto &p : link.to_receiver) {
+    AOOData data;
+    if (!data.parse(p.data(), p.size())) continue;
+    frames++;
+    CHECK(p.size() <= (size_t)cfg.max_packet_size);
+  }
+  CHECK_EQ(frames, 4 * 2);  // 1024 bytes -> 2 frames of 512 bytes
 }
 
 /// A freshly allocated slot must not look like an active segment with id 0
@@ -362,7 +383,7 @@ void testMultiFrameWithRedundancy() {
   AOOReceiver receiver(1, link.receiver_io);
   receiver.begin(receiverConfig(receiver));
   auto cfg = senderConfig(sender);
-  cfg.max_frame_size = 100;
+  cfg.max_packet_size = 200;
   cfg.redundancy = 2;
   sender.begin(cfg);
   for (int b = 0; b < 6; b++) writeBlock(sender, b);
@@ -373,12 +394,12 @@ void testMultiFrameWithRedundancy() {
 }
 
 /// A resent block must be split like the original, so that no packet
-/// exceeds max_frame_size
+/// exceeds max_packet_size
 void testResendSplitsLargeBlocks() {
   Link link;
   AOOSender sender(1, link.sender_io);
   auto cfg = senderConfig(sender);
-  cfg.max_frame_size = 100;
+  cfg.max_packet_size = 200;
   sender.begin(cfg);
   for (int b = 0; b < 4; b++) writeBlock(sender, b);
   link.to_receiver.clear();
@@ -393,7 +414,7 @@ void testResendSplitsLargeBlocks() {
     AOOData data;
     if (!data.parse(p.data(), p.size()) || data.seq_no != 2) continue;
     frames++;
-    CHECK(data.audio_data.len <= 100);
+    CHECK(p.size() <= 200);
     CHECK_EQ(data.total_number_of_frames, 3);
   }
   CHECK_EQ(frames, 3);
@@ -624,6 +645,7 @@ const AOOTestCase tests[] = {
     {"UnderrunDoesNotDropNextSegment", testUnderrunDoesNotDropNextSegment},
     {"PcmStreamingIsBitExact", testPcmStreamingIsBitExact},
     {"MultiFrameContentIsCorrect", testMultiFrameContentIsCorrect},
+    {"DefaultPacketsFitMaxPacketSize", testDefaultPacketsFitMaxPacketSize},
     {"EmptySlotsAreInactive", testEmptySlotsAreInactive},
     {"LostPacketIsRecovered", testLostPacketIsRecovered},
     {"RedundancyKeepsStatsConsistent", testRedundancyKeepsStatsConsistent},

@@ -202,6 +202,7 @@ struct Options {
   std::string codec = "pcm";
   int block = -1;  // pcm: frames, opus: ms
   int redundancy = 1;
+  int packet_size = -1;  // default of AOOSenderConfig
   std::string input = "sine:440";
   // receive
   std::string output = "speaker";
@@ -233,6 +234,8 @@ static void usage() {
           "  -b, --block N         pcm: frames per block [256],\n"
           "                        opus: frame size in ms: 10, 20, 40, 60 [20]\n"
           "  -R, --redundancy N    send each block N times [1]\n"
+          "      --packet-size N   max. size of a data packet, bigger blocks\n"
+          "                        are split [960]\n"
           "      --input SOURCE    sine[:FREQUENCY], mic, FILE.wav or - for\n"
           "                        raw 16 bit PCM from stdin [sine:440]\n"
           "\n"
@@ -277,6 +280,7 @@ static bool parseOptions(int argc, char **argv, Options &opt) {
     else if (arg == "-C" || arg == "--codec") opt.codec = value();
     else if (arg == "-b" || arg == "--block") opt.block = atoi(value());
     else if (arg == "-R" || arg == "--redundancy") opt.redundancy = atoi(value());
+    else if (arg == "--packet-size") opt.packet_size = atoi(value());
     else if (arg == "--input") opt.input = value();
     else if (arg == "--output") opt.output = value();
     else if (arg == "-d" || arg == "--buffer-depth") opt.buffer_depth = atoi(value());
@@ -379,6 +383,7 @@ static int runSend(Options &opt) {
   cfg.copyFrom(info);
   cfg.sink_targets.push_back(AOOSinkTarget(opt.sink));
   cfg.redundancy = opt.redundancy;
+  if (opt.packet_size > 0) cfg.max_packet_size = opt.packet_size;
   if (!sender.begin(cfg)) {
     fprintf(stderr, "could not start the sender\n");
     return 1;

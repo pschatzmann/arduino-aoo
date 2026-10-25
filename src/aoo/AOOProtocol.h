@@ -476,6 +476,15 @@ struct AOOData : public AOOMessage {
     return true;
   }
 
+  /// Size of the message without the audio data (including the maximum
+  /// padding of the audio data) for the current sink_id
+  uint32_t headerSize() {
+    char address[AOO_MAX_ADDRESS_LEN];
+    snprintf(address, sizeof(address), "/aoo/sink/%d/data", sink_id);
+    return OSCData::oscSize(address) + OSCData::oscFormatSize(format) +
+           (7 * 4) + (2 * 8) + sizeof(uint32_t) + 3;
+  }
+
   /// Parses the data message from raw data
   bool parse(uint8_t *bin, size_t len) override {
     TRACED();

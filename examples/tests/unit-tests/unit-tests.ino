@@ -220,7 +220,7 @@ void testMultiFrameReassembly() {
   AOOReceiver receiver(1, link.receiver_io);
   receiver.begin(receiverConfig(receiver));
   auto cfg = senderConfig(sender);
-  cfg.max_frame_size = 100;  // 256 byte blocks -> 3 frames
+  cfg.max_packet_size = 200;  // 256 byte blocks -> 3 frames
   sender.begin(cfg);
   for (int b = 0; b < 6; b++) writeBlock(sender, b);
   CHECK_EQ(aooCountAddress(link.to_receiver, "/data"), 6 * 3);
