@@ -13,14 +13,20 @@
  * StreamCopy. The only addition is setTaskConfig() to tune the task's stack
  * size, priority and CPU core.
  *
- * The audio is written as CSV to Serial, so that the received data can be
- * checked easily: replace the CsvOutput with an I2SStream (or any other
- * output) to play it.
+ * The audio is played via I2S (or any other output, e.g. an AudioBoardStream);
+ * on the desktop via miniaudio.
  */
 #include "AOO.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "WiFi.h"
+// #include "AudioTools/AudioLibs/AudioBoardStream.h"
+
+// on desktop we use miniaudio
+#if defined(IS_DESKTOP)
+#include "AudioTools/AudioLibs/MiniAudioStream.h"
+#define I2SStream MiniAudioStream
+#endif
 
 const char* ssid = "SSID";
 const char* password = "password";
@@ -28,10 +34,8 @@ const int udpPort = 9999;  // port of this receiver (sink)
 AudioInfo info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
 AOOReceiverTask aoo_receiver(1, udp);  // sink id 1
-CsvOutput<int16_t> out(Serial);
-// the receiver provides data on demand: limit the reads to real time
-Throttle throttle(out);
-StreamCopy copier(throttle, aoo_receiver);  // receiver is the audio SOURCE
+I2SStream out;  // or any other e.g. AudioBoardStream out(AudioKitEs8388V1);
+StreamCopy copier(out, aoo_receiver);  // receiver is the audio SOURCE
 
 // Each sender instance needs to have it separate decoder instance!
 AudioDecoder* createOpusDecoder() {
@@ -42,7 +46,6 @@ AudioDecoder* createOpusDecoder() {
 
 void setup() {
   Serial.begin(115200);
-  // log to Serial only for warnings: the CSV output also goes to Serial
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Warning);
 
   // Connect to WiFi
@@ -51,8 +54,9 @@ void setup() {
   WiFi.setSleep(false);
 
   // start the output
-  out.begin(info);
-  throttle.begin(info);
+  auto cfg_out = out.defaultConfig(TX_MODE);
+  cfg_out.copyFrom(info);
+  out.begin(cfg_out);
 
   // register decoders
   aoo_receiver.addDecoder("opus", createOpusDecoder);

@@ -36,7 +36,7 @@ A sender is used like any AudioTools output (e.g. with a `StreamCopy` from a mic
 | Example | Description |
 |---------|-------------|
 | [aoo-sender](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-sender) | sends a sine wave with Opus |
-| [aoo-receiver](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver) | receives PCM or Opus and prints it as CSV (replace the output with I2S to play it) |
+| [aoo-receiver](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver) | receives PCM or Opus and plays it via I2S |
 | [aoo-receiver-task](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/aoo-receiver-task) | the same with `AOOReceiverTask` |
 | [tests](https://github.com/pschatzmann/arduino-aoo/tree/main/examples/tests) | automated tests, which also run on a microcontroller |
 

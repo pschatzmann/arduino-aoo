@@ -2,18 +2,25 @@
  * @brief We receive audio data using Audio Over OSC (AOO) via UDP.
  * We support the decoding of pcm and opus.
  * The AOOReceiver is an AudioStream — use StreamCopy to pull decoded
- * audio and write it to any output. Here the audio is written as CSV to
- * Serial, so that the received data can be checked easily (e.g. with the
- * Serial Plotter): replace the CsvOutput with an I2SStream (or any other
- * output) to play it.
+ * audio and write it to any output: here it is played via I2S (or any other
+ * output, e.g. an AudioBoardStream); on the desktop via miniaudio.
  *
- * A CSV line per frame needs a lot of bandwidth: on a microcontroller use a
- * low sample rate (e.g. 8000 Hz, mono) and a high baud rate.
+ * To check the received data you can replace the I2SStream with a
+ * CsvOutput<int16_t> (paced with a Throttle): on a microcontroller use a low
+ * sample rate (e.g. 8000 Hz, mono), because a CSV line per frame needs a lot
+ * of bandwidth.
  */
 #include "AOO.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "WiFi.h"
+// #include "AudioTools/AudioLibs/AudioBoardStream.h"
+
+// on desktop we use miniaudio
+#if defined(IS_DESKTOP)
+#include "AudioTools/AudioLibs/MiniAudioStream.h"
+#define I2SStream MiniAudioStream
+#endif
 
 const char* ssid = "SSID";
 const char* password = "password";
@@ -21,10 +28,8 @@ const int udpPort = 9999;  // port of this receiver (sink)
 AudioInfo info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
 AOOReceiver aoo_receiver(1, udp);  // sink id 1
-CsvOutput<int16_t> out(Serial);
-// the receiver provides data on demand: limit the reads to real time
-Throttle throttle(out);
-StreamCopy copier(throttle, aoo_receiver);  // receiver is the audio SOURCE
+I2SStream out;  // or any other e.g. AudioBoardStream out(AudioKitEs8388V1);
+StreamCopy copier(out, aoo_receiver);  // receiver is the audio SOURCE
 
 // Each sender instance needs to have it separate decoder instance!
 AudioDecoder* createOpusDecoder() {
@@ -35,7 +40,6 @@ AudioDecoder* createOpusDecoder() {
 
 void setup() {
   Serial.begin(115200);
-  // log to Serial only for warnings: the CSV output also goes to Serial
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Warning);
 
   // Connect to WiFi
@@ -44,8 +48,9 @@ void setup() {
   WiFi.setSleep(false);
 
   // start the output
-  out.begin(info);
-  throttle.begin(info);
+  auto cfg_out = out.defaultConfig(TX_MODE);
+  cfg_out.copyFrom(info);
+  out.begin(cfg_out);
 
   // register decoders
   aoo_receiver.addDecoder("opus", createOpusDecoder);
