@@ -96,22 +96,23 @@ struct AOOReceiverConfig : public AudioInfo {
   /// The output format (sample rate, channels) is defined by this config.
   /// Set to true to use the format of the first source instead.
   bool output_follows_source = false;
-  /// Wait time in ms before requesting a resend for missing packets.
-  /// Should be less than half the priming delay so the resent packet
-  /// arrives before the read pointer reaches the gap.
-  /// With buffer_depth=10 and 10ms blocks: priming = 50ms, so 20ms
-  /// gives the resent packet ~30ms to arrive.
-  int recovery_wait_ms = 20;
+  /// Wait time in ms before requesting a resend for a missing packet (once
+  /// a later packet has arrived): it gives reordered packets time to arrive.
+  /// The resent packet must arrive before the read position reaches the
+  /// gap, which is about (buffer_depth / 2) blocks behind the newest
+  /// packet: e.g. 5 * 5.3 ms = 27 ms for 256 samples at 48 kHz, or
+  /// 5 * 20 ms = 100 ms for 20 ms Opus frames. So the wait plus the round
+  /// trip time must be clearly below that delay.
+  int recovery_wait_ms = 10;
   /// Maximum resend attempts per missing packet. Keep at 1 to
   /// avoid flooding the network — the min_quality_percent gate
   /// already prevents resends during bad periods.
   int recovery_max_requests = 1;
   /// Only send resend requests when the recent quality (last 100 blocks) is
-  /// above this threshold.
-  /// At 98%: with 100 blocks/sec, allows resends for up to 2 gaps/sec.
-  /// Below this threshold resends are suppressed to avoid making
-  /// congestion worse.
-  float min_quality_percent = 98.0f;
+  /// above this threshold: below it resends are suppressed to avoid making
+  /// congestion worse. Requests for packets the reader has already passed
+  /// are discarded.
+  float min_quality_percent = 80.0f;
   /// Remove sources whose recent quality (last 100 blocks) is below this
   /// percentage. At 50%: a source losing more than half its packets is
   /// dropped from the mixer.

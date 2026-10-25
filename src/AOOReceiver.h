@@ -269,6 +269,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       }
     }
     auto p = std::unique_ptr<AOOSourceLine>(new AOOSourceLine());
+    // the mixer reads via Stream::readBytes(), which is not virtual in all
+    // cores: never wait for data
+    p->setTimeout(0);
     p->source_id = source_id;
     p->sink_id = sink_id;
     p->stream_id = stream_id;
@@ -435,31 +438,15 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       stats_.no_decoder++;
       LOGD("No decoder: source=%d sink=%d stream=%d (have %d sources)",
            source_id, id(), stream_id, (int)sources.size());
-      // Try to reuse decoder from same source with different stream_id
-      for (auto &s : sources) {
-        if (s->source_id == source_id && s->hasDecoder()) {
-          LOGW("  Found decoder on stream=%d, reusing", s->stream_id);
-          // Create a new pipeline for this source line using the same codec
-          std::unique_ptr<AudioDecoder> p_dec(
-              codec_factory.createDecoder(s->format_str.c_str()));
-          if (p_dec) {
-            info.source_audio_info = s->source_audio_info;
-            info.block_size = s->block_size;
-            info.format_str = s->format_str;
-            info.begin(aoo_cfg, std::move(p_dec), aoo_cfg.buffer_depth);
-            addSourceToMixer(info);
-          }
-          break;
-        }
-      }
-      if (!info.hasDecoder()) {
-        // we missed the /start message (e.g. started after the source or
-        // the stream timed out): ask the source to send it again. Updating
-        // last_data_time lets the line time out if the source never answers.
-        info.last_data_time = millis();
-        requestStartFor(info);
-        return false;
-      }
+      // We missed the /start message (e.g. started after the source or the
+      // stream timed out): ask the source to send it again. The format of
+      // another stream can not be used: it might come from a different
+      // sender with the same id or a restarted sender with another codec.
+      // Updating last_data_time lets the line time out if the source never
+      // answers.
+      info.last_data_time = millis();
+      requestStartFor(info);
+      return false;
     }
 
     // Multi-frame reassembly
@@ -554,7 +541,9 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       // Update statistics
       p->updateStats();
 
-      // Conditional resend requests
+      // Conditional resend requests (not for packets which were already
+      // replaced by silence)
+      p->recovery.discardUpTo(p->buffer_view.currentSeq());
       if (aoo_cfg.recovery_max_requests > 0 &&
           p->stats_tracker.recentQualityPercent() >=
               aoo_cfg.min_quality_percent) {

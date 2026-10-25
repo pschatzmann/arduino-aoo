@@ -3,7 +3,6 @@
 #include <vector>
 #include "AudioTools/AudioCodecs/AudioEncoded.h"
 #include "AudioTools/CoreAudio/AudioStreamsConverter.h"
-#include "AudioTools/CoreAudio/Pipeline.h"
 #include "aoo/AOOBufferView.h"
 #include "aoo/AOOPacketRecovery.h"
 
@@ -12,12 +11,17 @@ namespace arduino_aoo {
 /**
  * @brief Per-source audio stream for AOOReceiver.
  *
- * Each remote source gets its own encoded data buffer, decoder pipeline,
- * packet recovery, and drift estimator. Extends AudioStream so it can be
- * added directly to an InputMixer — readBytes() and available() delegate
- * to the internal Pipeline.
+ * Each remote source gets its own encoded data buffer, decoder, format
+ * converter, packet recovery, and drift compensation. Extends AudioStream so
+ * it can be added directly to an InputMixer.
  *
- * Pipeline: IndexedRingBufferStreamView -> EncodedAudioStream -> FormatConverterStream
+ * On read, the encoded segments are taken one by one from the buffer and
+ * written to the decoder (so that a decoder like Opus gets exactly one packet
+ * per write): decoder -> FormatConverterStream -> QueueStream -> readBytes().
+ * A segment is only decoded when the queue has space for a complete decoded
+ * segment, so that the decoder never has to wait for free space.
+ * A missing segment is replaced by silence of the size of the last decoded
+ * segment.
  *
  * @ingroup aoo
  * @author Phil Schatzmann
@@ -35,18 +39,20 @@ class AOOSourceLine : public AudioStream {
   /// Destructor; releases the decoder
   ~AOOSourceLine() { end(); }
 
-  // --- AudioStream interface (delegates to pipeline) ---
+  // --- AudioStream interface ---
 
-  /// Pulls decoded audio data from the pipeline (nothing before priming)
+  /// Provides decoded audio data (nothing before priming)
   size_t readBytes(uint8_t *data, size_t len) override {
     if (!hasDecoder() || !isPrimed()) return 0;
-    return pipeline.readBytes(data, len);
+    decode(len);
+    return decoded.readBytes(data, len);
   }
 
   /// Returns the number of bytes available for reading
   int available() override {
     if (!hasDecoder() || !isPrimed()) return 0;
-    return pipeline.available();
+    decode(DEFAULT_BUFFER_SIZE);
+    return decoded.available();
   }
 
   /// Not used in pull mode
@@ -84,6 +90,9 @@ class AOOSourceLine : public AudioStream {
       LockGuard lock(p_mutex);
       if (buffer_view.acceptsSegment(seq)) {
         written = encoded_buffer.write(seq, data, len);
+      } else {
+        LOGD("Segment %d ignored (read %d, newest %d)", (int)seq,
+             (int)buffer_view.currentSeq(), (int)buffer_view.newestSeq());
       }
     }
     if (written > 0) {
@@ -95,7 +104,7 @@ class AOOSourceLine : public AudioStream {
     return written > 0;
   }
 
-  /// Set up the pull-based decoding pipeline
+  /// Set up the decoding: decoder -> format converter -> decoded queue
   bool begin(AudioInfo output_info, std::unique_ptr<AudioDecoder> decoder,
              int buffer_depth) {
     if (p_decoder) p_decoder->end();
@@ -104,44 +113,38 @@ class AOOSourceLine : public AudioStream {
     buffer_view.setBuffer(&encoded_buffer);
     buffer_view.setStartSeq(-1);
 
-    // The pipeline is pulled in real time: never wait for missing data in
-    // the blocking Stream::readBytes() (default timeout is 1 second)
-    buffer_view.setTimeout(0);
-    encoded_stream.setTimeout(0);
-    format_converter.setTimeout(0);
-
     resample_rate = source_audio_info.sample_rate;
     fill_average = -1.0f;
     last_drift_update = millis();
 
-    encoded_stream.setDecoder(p_decoder.get());
-    p_decoder->setAudioInfo(source_audio_info);
+    // space for a few decoded segments in the output format
+    int frames = block_size > 0 ? block_size : DEFAULT_BUFFER_SIZE;
+    float rate_factor =
+        source_audio_info.sample_rate > 0
+            ? (float)output_info.sample_rate / source_audio_info.sample_rate
+            : 1.0f;
+    max_decoded_size = frames * output_info.channels *
+                           (output_info.bits_per_sample / 8) *
+                           (rate_factor * 1.01f) +
+                       64;
+    decoded_buffer.resize(std::max(4 * max_decoded_size, 8192));
+    decoded.begin();
+    last_decoded_size = 0;
+    format_converter.setOutput(decoded);
     format_converter.begin(source_audio_info, output_info);
-
-    pipeline.setInput(buffer_view);
-    pipeline.add(encoded_stream);
-    pipeline.add(format_converter);
-    pipeline.begin(source_audio_info);
-
-    // The buffer view is a live source that is momentarily empty on an
-    // underrun: don't treat empty reads as end of stream and don't block
-    for (ReformatBaseStream *stream :
-         {(ReformatBaseStream *)&encoded_stream,
-          (ReformatBaseStream *)&format_converter}) {
-      stream->transformationReader().setEofOnZeroReads(false);
-      stream->transformationReader().setZeroReadDelay(0);
-    }
-
-    return true;
+    p_decoder->setOutput(format_converter);
+    p_decoder->setAudioInfo(source_audio_info);
+    return p_decoder->begin();
   }
 
-  /// Stops the pipeline and releases the decoder
+  /// Stops the decoding and releases the decoder
   void end() {
-    pipeline.end();
     if (p_decoder) {
       p_decoder->end();
       p_decoder.reset();
     }
+    format_converter.end();
+    decoded_buffer.reset();
   }
 
   /// Adaptive resampling: compensates the clock drift between source and
@@ -225,9 +228,44 @@ class AOOSourceLine : public AudioStream {
   IndexedRingBuffer<SingleBuffer<uint8_t>> encoded_buffer;
   IndexedRingBufferStreamView buffer_view;
   std::unique_ptr<AudioDecoder> p_decoder;
-  EncodedAudioStream encoded_stream;
   FormatConverterStream format_converter;
-  Pipeline pipeline;
+  RingBuffer<uint8_t> decoded_buffer{0};
+  QueueStream<uint8_t> decoded{decoded_buffer};
+  std::vector<uint8_t> segment;
+  int last_decoded_size = 0;
+  /// expected maximum size of a decoded segment
+  int max_decoded_size = 0;
+
+  /// Writes len bytes of silence to the decoded queue
+  void writeSilence(int len) {
+    const uint8_t zeros[64] = {0};
+    while (len > 0) {
+      int n = std::min(len, (int)sizeof(zeros));
+      decoded.write(zeros, n);
+      len -= n;
+    }
+  }
+
+  /// Decodes segments until len bytes are available, nothing more can be
+  /// decoded (underrun) or the queue has no space for another segment
+  void decode(size_t len) {
+    while ((size_t)decoded.available() < len &&
+           decoded.availableForWrite() >= max_decoded_size) {
+      auto type = buffer_view.readSegment(segment);
+      if (type == IndexedRingBufferStreamView::kSegment) {
+        int before = decoded.available();
+        p_decoder->write(segment.data(), segment.size());
+        int produced = decoded.available() - before;
+        if (produced > 0) last_decoded_size = produced;
+        if (produced > max_decoded_size) max_decoded_size = produced;
+      } else if (type == IndexedRingBufferStreamView::kGap) {
+        // missing segment: silence of the size of the last decoded segment
+        writeSilence(last_decoded_size);
+      } else {
+        break;
+      }
+    }
+  }
   /// fill level deviations below this fraction of the target are ignored
   static constexpr float kDriftDeadband = 0.25f;
   uint32_t last_drift_update = 0;

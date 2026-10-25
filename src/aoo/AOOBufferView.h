@@ -164,6 +164,9 @@ class IndexedRingBufferStreamView : public AudioStream {
   /// Returns the current read sequence number
   int32_t currentSeq() const { return read_seq; }
 
+  /// Returns the highest received sequence number
+  int32_t newestSeq() const { return max_write_seq; }
+
   /// Number of received segments which have not been read yet (incl. gaps)
   int32_t bufferedSegments() const {
     if (max_write_seq < 0) return 0;
@@ -287,6 +290,38 @@ class IndexedRingBufferStreamView : public AudioStream {
       }
     }
     return total_read;
+  }
+
+  /// Result of readSegment()
+  enum SegmentType { kNoSegment = 0, kSegment, kGap };
+
+  /// Provides the next encoded segment in sequence order, keeping the
+  /// segment boundaries (which a decoder like Opus needs): kSegment copies
+  /// the segment to out, kGap reports a missing segment (the reader moves
+  /// on), kNoSegment means there is nothing to read yet (not primed, or the
+  /// next segment has not been received: underrun).
+  SegmentType readSegment(std::vector<uint8_t>& out) {
+    if (p_buffer == nullptr || !is_primed) return kNoSegment;
+    LockGuard lock(p_mutex);
+    read_seq = startSeq();
+    int32_t next_seq = read_seq + 1;
+    auto* entry = p_buffer->get(next_seq);
+    if (entry == nullptr || !entry->active) {
+      // Underrun: wait for the segment instead of skipping it
+      if (next_seq > max_write_seq) return kNoSegment;
+      // If reader has fallen behind the buffer, jump to oldest available
+      int32_t oldest = max_write_seq - (int32_t)p_buffer->size() + 1;
+      read_seq = next_seq < oldest ? oldest - 1 : next_seq;
+      read_offset = 0;
+      gaps_filled++;
+      return kGap;
+    }
+    const uint8_t* data = entry->address();
+    out.assign(data + read_offset, data + entry->available());
+    entry->active = false;
+    read_seq = next_seq;
+    read_offset = 0;
+    return kSegment;
   }
 
   /// Number of gaps filled with silence

@@ -43,8 +43,9 @@ class AOOReceiverTask : public AOOReceiver {
   /// Destructor; stops the task and releases resources
   ~AOOReceiverTask() { end(); }
 
-  /// Configure the receive task parameters
-  void setTaskConfig(int stackSize = 4096, int priority = 1, int core = 0) {
+  /// Configure the receive task parameters (stack size in bytes on ESP32;
+  /// 4096 is too small for the message handling)
+  void setTaskConfig(int stackSize = 8192, int priority = 1, int core = 0) {
     task_stack_size = stackSize;
     task_priority = priority;
     task_core = core;
@@ -125,7 +126,7 @@ class AOOReceiverTask : public AOOReceiver {
   Task task;
   Mutex mutex;                        // guards each source's encoded buffer
   MutexRecursive sources_mutex;   // guards the sources list and mixer
-  int task_stack_size = 4096;
+  int task_stack_size = 8192;
   int task_priority = 1;
   int task_core = 0;
 

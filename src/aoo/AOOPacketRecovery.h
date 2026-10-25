@@ -87,6 +87,14 @@ class AOOPacketRecovery {
     return count;
   }
 
+  /// Discards the pending sequences up to (and including) seq: e.g. the
+  /// ones the reader has already passed, for which a resend is useless
+  void discardUpTo(int32_t seq) {
+    for (int i = pending_.size() - 1; i >= 0; i--) {
+      if (pending_[i].seq <= seq) pending_.erase(pending_.begin() + i);
+    }
+  }
+
   /// Number of sequences currently pending recovery
   int pendingCount() { return pending_.size(); }
 

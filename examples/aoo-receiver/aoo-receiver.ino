@@ -2,28 +2,29 @@
  * @brief We receive audio data using Audio Over OSC (AOO) via UDP.
  * We support the decoding of pcm and opus.
  * The AOOReceiver is an AudioStream — use StreamCopy to pull decoded
- * audio and write it to I2S (or any other output).
+ * audio and write it to any output. Here the audio is written as CSV to
+ * Serial, so that the received data can be checked easily (e.g. with the
+ * Serial Plotter): replace the CsvOutput with an I2SStream (or any other
+ * output) to play it.
+ *
+ * A CSV line per frame needs a lot of bandwidth: on a microcontroller use a
+ * low sample rate (e.g. 8000 Hz, mono) and a high baud rate.
  */
 #include "AOO.h"
 #include "AudioTools.h"
 #include "AudioTools/AudioCodecs/CodecOpusMultiStream.h"
 #include "WiFi.h"
-// #include "AudioTools/AudioLibs/AudioBoardStream.h"
-
-// on desktop we use PortAudio
-#if defined(IS_DESKTOP)
-#include "AudioTools/AudioLibs/MiniAudioStream.h"
-#define I2SStream MiniAudioStream
-#endif
 
 const char* ssid = "SSID";
 const char* password = "password";
-const int udpPort = 9999;
+const int udpPort = 9999;  // port of this receiver (sink)
 AudioInfo info(48000, 2, 16);
 AOOStreamUDP udp(udpPort);
-I2SStream i2s;  // or any other e.g. AudioBoardStream i2s(AudioKitEs8388V1);
-AOOReceiver aoo_receiver(1, udp);      // no output in constructor
-StreamCopy copier(i2s, aoo_receiver);  // receiver is the audio SOURCE
+AOOReceiver aoo_receiver(1, udp);  // sink id 1
+CsvOutput<int16_t> out(Serial);
+// the receiver provides data on demand: limit the reads to real time
+Throttle throttle(out);
+StreamCopy copier(throttle, aoo_receiver);  // receiver is the audio SOURCE
 
 // Each sender instance needs to have it separate decoder instance!
 AudioDecoder* createOpusDecoder() {
@@ -34,29 +35,25 @@ AudioDecoder* createOpusDecoder() {
 
 void setup() {
   Serial.begin(115200);
+  // log to Serial only for warnings: the CSV output also goes to Serial
   AudioToolsLogger.begin(Serial, AudioToolsLogLevel::Warning);
-  while(!Serial) delay(10);
-
 
   // Connect to WiFi
   WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) delay(500);
   WiFi.setSleep(false);
-  Serial.print("Connected to WiFi. IP address: ");
-  Serial.println(WiFi.localIP());
 
-  // start I2S
-  Serial.println("starting I2S...");
-  auto cfg_i2s = i2s.defaultConfig(TX_MODE);
-  cfg_i2s.copyFrom(info);
-  i2s.begin(cfg_i2s);
+  // start the output
+  out.begin(info);
+  throttle.begin(info);
 
   // register decoders
   aoo_receiver.addDecoder("opus", createOpusDecoder);
 
   // --- Set the output format and start; uncomment below to tune further ---
   auto cfg = aoo_receiver.defaultConfig();
-  // Define the audio format to be used for the output (I2S)
+  // Define the audio format to be used for the output: all sources are
+  // converted to it
   cfg.copyFrom(info);
 
   // Buffer depth for encoded segments (also serves as jitter buffer)
@@ -73,10 +70,8 @@ void setup() {
   // cfg.recovery_max_requests = 5;
 
   aoo_receiver.begin(cfg);
-
-  Serial.println("started...");
 }
 
 void loop() {
-  copier.copy();  // pulls from aoo_receiver.readBytes() -> writes to i2s
+  copier.copy();  // pulls from aoo_receiver.readBytes() -> writes to out
 }

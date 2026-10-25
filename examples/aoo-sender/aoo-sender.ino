@@ -15,12 +15,14 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
 const char *ssid = "ssid";
 const char *password = "password";
-const int udpPort = 9999;
+const int receiverPort = 9999;  // port of the receiver (sink)
+const int senderPort = 9998;    // local port of this sender (source)
+IPAddress receiverIP(192, 168, 1, 44);
 AudioInfo info(48000, 1, 16);
 SineWaveGenerator<int16_t> sineWave;
 GeneratedSoundStream<int16_t> sound(sineWave);
 Throttle throttled_in(sound);
-AOOStreamUDP udp(IPAddress(192, 168, 1, 44), udpPort);
+AOOStreamUDP udp(receiverIP, receiverPort);
 AOOSender aoo_sender(1, udp);
 StreamCopy copier(aoo_sender, throttled_in);
 OpusMultiStreamAudioEncoder opus;
@@ -43,6 +45,10 @@ void setup() {
   WiFi.setSleep(false);  
   Serial.print("Connected to WiFi. IP address: ");
   Serial.println(WiFi.localIP());
+
+  // the local port must differ from the receiver port, if both run on the
+  // same host
+  udp.setLocalPort(senderPort);
 
   // Setup sine wave input
   sineWave.begin(info, N_B4);

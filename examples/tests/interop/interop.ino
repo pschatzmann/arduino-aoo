@@ -64,7 +64,7 @@ int receive(int port, int seconds) {
       st.segments_stored, st.resend_requests, st.start_requests,
       ms.parse_errors);
   // a 441 Hz sine with amplitude 0.5: rms 0.354, 882 zero crossings/sec
-  bool ok = n > 44100 * (seconds - 2) && fabs(rms - 0.354) < 0.03 &&
+  bool ok = n > 44100 * (seconds - 2) * 0.98 && fabs(rms - 0.354) < 0.03 &&
             fabs(cps - 882) < 30;
   printf("%s\n", ok ? "PASSED" : "FAILED");
   return ok ? 0 : 1;

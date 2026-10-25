@@ -99,7 +99,7 @@ cfg.channels = 2;
 cfg.bits_per_sample = 16;
 cfg.buffer_depth = 10;           // encoded segments to buffer
 cfg.adaptive_resampling = true;  // compensate clock drift
-cfg.recovery_wait_ms = 20;       // resend request timing
+cfg.recovery_wait_ms = 10;       // resend request timing
 cfg.recovery_max_requests = 1;   // max retries per gap
 cfg.stream_timeout_ms = 5000;    // remove silent sources
 receiver.begin(cfg);

@@ -142,8 +142,10 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
     return AudioOutput::begin();
   }
 
-  /// Ends the processing: informs the sinks that the stream has stopped
+  /// Ends the processing: informs the sinks that the stream has stopped.
+  /// Calling it again (e.g. from the destructor) has no effect.
   void end() {
+    if (!is_active && !is_streaming) return;
     if (is_streaming) {
       is_streaming = false;
       forEachSink([&](int sid) {
