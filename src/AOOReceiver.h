@@ -112,7 +112,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     aoo_cfg.channels = info.channels;
     aoo_cfg.bits_per_sample = info.bits_per_sample;
     for (auto &p : sources) {
-      p->setOutputInfo(p->source_audio_info, aoo_cfg);
+      p->setOutputInfo(aoo_cfg);
     }
   }
 
@@ -320,7 +320,7 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
 
   // --- AOOMessageListener callbacks (ping/pong handled by AOOMessageHandler) ---
 
-  void parseStartMessage(OSCData &osc, AOOSourceLine &tmp) {
+  bool parseStartMessage(OSCData &osc, AOOSourceLine &tmp) {
     AOOStart aoo_start;
     if (aoo_start.parse(osc.data(), osc.size())) {
       tmp.source_id = aoo_start.source_id;
@@ -331,25 +331,42 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
       tmp.block_size = aoo_start.block_size;
       tmp.codec_delay_samples = aoo_start.codec_delay_samples;
       tmp.format_str = aoo_start.codec;
-    } else {
-      LOGE("Failed to parse start message");
+      return true;
     }
+    LOGE("Failed to parse start message");
+    return false;
   }
 
   bool onStart(OSCData &data) override {
     TRACED();
     AOOSourceLine tmp;
-    parseStartMessage(data, tmp);
+    if (!parseStartMessage(data, tmp)) return false;
 
     LOGI("Received start: ch=%d, rate=%d, blocksize=%d, codec=%s",
          tmp.source_audio_info.channels, tmp.source_audio_info.sample_rate,
          tmp.block_size, tmp.format_str.c_str());
 
-    AOOSourceLine &info = getSourceLine(tmp.source_id, id(), tmp.stream_id);
+    std::unique_ptr<AudioDecoder> p_dec(
+        codec_factory.createDecoder(tmp.format_str.c_str()));
+    if (!p_dec) {
+      LOGE("Decoder not defined for: %s", tmp.format_str.c_str());
+      return false;
+    }
 
-    // Clean up existing decoder if this is a duplicate /start
+    AOOSourceLine &info = getSourceLine(tmp.source_id, id(), tmp.stream_id);
+    info.sender_ip = p_io->senderIP();
+    info.sender_port = p_io->senderPort();
+
+    // A repeated /start (e.g. the answer to a /start request) for an
+    // unchanged stream keeps the buffered audio
     if (info.hasDecoder()) {
-      LOGI("Re-initializing source %d (duplicate /start)", tmp.source_id);
+      if (info.source_audio_info == tmp.source_audio_info &&
+          info.block_size == tmp.block_size &&
+          info.format_str.equals(tmp.format_str.c_str())) {
+        LOGI("Source %d: repeated /start ignored", tmp.source_id);
+        return true;
+      }
+      LOGI("Re-initializing source %d (format changed)", tmp.source_id);
       info.end();
     }
 
@@ -359,15 +376,6 @@ class AOOReceiver : public AudioStream, public AOOMessageListener {
     info.block_size = tmp.block_size;
     info.codec_delay_samples = tmp.codec_delay_samples;
     info.format_str = tmp.format_str;
-    info.sender_ip = p_io->senderIP();
-    info.sender_port = p_io->senderPort();
-
-    std::unique_ptr<AudioDecoder> p_dec(
-        codec_factory.createDecoder(tmp.format_str.c_str()));
-    if (!p_dec) {
-      LOGE("Decoder not defined for: %s", tmp.format_str.c_str());
-      return false;
-    }
 
     // The output format is defined by the configuration: each source is
     // converted to it. Optionally the first source defines it.

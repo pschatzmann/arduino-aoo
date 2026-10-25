@@ -13,20 +13,19 @@ namespace arduino_aoo {
  * via the indicated output stream (usually a AOOStreamUDP). We provide a simple
  * implementation which is purely based on the AudioTools library w/o any
  * external dependencies. The call to write() will send the data to the output
- * stream and receive ping and resend requests. If you pause to call write(),
- * make sure that you continue to call receive() to keep the ping alive.
+ * stream and process incoming messages (pings, resend and start requests,
+ * invitations). If you pause to call write(), make sure that you continue to
+ * call receive() to keep the ping alive.
  *
- * By default we tramsmit PCM data, but you can also use any other encoder. If
- * you decide to use a CopyEnoder to write already encoded data, you need to
+ * By default we transmit PCM data, but you can also use any other encoder. If
+ * you decide to use a CopyEncoder to write already encoded data, you need to
  * make sure that the writes are throttled by the decoded data rate, otherwise
- * the aooSink will run into buffer overflows.
+ * the sink will run into buffer overflows.
  *
- * @attention Currently we do not support the split into multiple frames, so for
- * each seq no we send only one full frame. In order to support the reseding of
- * missing frames we need to define the timeout which defines how long we keep
- * the sent data in a buffer.
- *
- * Only one sink is supported!
+ * Blocks which are bigger than max_frame_size are split into several frames.
+ * The sent blocks are kept in a buffer (buffer_size blocks) to answer resend
+ * requests. The audio can be sent to several sinks (sink_targets); sinks can
+ * also add themselves with an invitation or a /start request.
  *
  * @ingroup aoo
  * @author Phil Schatzmann
@@ -235,7 +234,8 @@ class AOOSender : public AudioOutput, public AOOMessageListener {
   /// Determines the codec type
   const char* codecStr() { return encoder_format; }
 
-  /// Maps bits_per_sample to AooPcmBitDepth enum (0=i8,1=i16,2=i24,3=f32,4=f64)
+  /// Maps bits_per_sample to AooPcmBitDepth enum (0=i8,1=i16,2=i24,3=f32,4=f64).
+  /// Note: AOO has no 32 bit integer format, so 32 bits are announced as f32.
   static int32_t pcmBitDepth(int bits_per_sample) {
     switch (bits_per_sample) {
       case 8:

@@ -117,20 +117,14 @@ class AOOSourceLine : public AudioStream {
     fill_average = -1.0f;
     last_drift_update = millis();
 
-    // space for a few decoded segments in the output format
-    int frames = block_size > 0 ? block_size : DEFAULT_BUFFER_SIZE;
-    float rate_factor =
-        source_audio_info.sample_rate > 0
-            ? (float)output_info.sample_rate / source_audio_info.sample_rate
-            : 1.0f;
-    max_decoded_size = frames * output_info.channels *
-                           (output_info.bits_per_sample / 8) *
-                           (rate_factor * 1.01f) +
-                       64;
-    decoded_buffer.resize(std::max(4 * max_decoded_size, 8192));
+    setupDecodedQueue(output_info);
     decoded.begin();
     last_decoded_size = 0;
     format_converter.setOutput(decoded);
+    // unbuffered: the buffered resampler calls flush() on its output, which
+    // clears a QueueStream; and the decoded audio of each segment must be
+    // available right away
+    format_converter.setBuffered(false);
     format_converter.begin(source_audio_info, output_info);
     p_decoder->setOutput(format_converter);
     p_decoder->setAudioInfo(source_audio_info);
@@ -195,8 +189,12 @@ class AOOSourceLine : public AudioStream {
     stats_tracker.updateStats(encoded_buffer, buffer_view.currentSeq());
   }
 
-  /// Reconfigure format converter (e.g. when output format changes)
-  void setOutputInfo(AudioInfo from, AudioInfo to) {
+  /// Reconfigure format converter (e.g. when output format changes),
+  /// keeping the rate of the adaptive resampling
+  void setOutputInfo(AudioInfo to) {
+    AudioInfo from = source_audio_info;
+    if (resample_rate > 0) from.sample_rate = resample_rate;
+    setupDecodedQueue(to);
     format_converter.begin(from, to);
   }
 
@@ -236,6 +234,20 @@ class AOOSourceLine : public AudioStream {
   /// expected maximum size of a decoded segment
   int max_decoded_size = 0;
 
+  /// Sizes the decoded queue for a few decoded segments in the output format
+  void setupDecodedQueue(AudioInfo output_info) {
+    int frames = block_size > 0 ? block_size : DEFAULT_BUFFER_SIZE;
+    float rate_factor =
+        source_audio_info.sample_rate > 0
+            ? (float)output_info.sample_rate / source_audio_info.sample_rate
+            : 1.0f;
+    max_decoded_size = frames * output_info.channels *
+                           (output_info.bits_per_sample / 8) *
+                           (rate_factor * 1.01f) +
+                       64;
+    decoded_buffer.resize(std::max(4 * max_decoded_size, 8192));
+  }
+
   /// Writes len bytes of silence to the decoded queue
   void writeSilence(int len) {
     const uint8_t zeros[64] = {0};
@@ -249,6 +261,12 @@ class AOOSourceLine : public AudioStream {
   /// Decodes segments until len bytes are available, nothing more can be
   /// decoded (underrun) or the queue has no space for another segment
   void decode(size_t len) {
+    // decoded segments became bigger than expected: grow the (empty) queue,
+    // otherwise there would never be space for a segment
+    if (decoded.available() == 0 &&
+        (int)decoded_buffer.size() < 4 * max_decoded_size) {
+      decoded_buffer.resize(4 * max_decoded_size);
+    }
     while ((size_t)decoded.available() < len &&
            decoded.availableForWrite() >= max_decoded_size) {
       auto type = buffer_view.readSegment(segment);
@@ -266,6 +284,7 @@ class AOOSourceLine : public AudioStream {
       }
     }
   }
+
   /// fill level deviations below this fraction of the target are ignored
   static constexpr float kDriftDeadband = 0.25f;
   uint32_t last_drift_update = 0;

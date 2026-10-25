@@ -314,9 +314,11 @@ void testAdaptiveResamplingFollowsBufferFill() {
   CHECK(receiver.resampleRate() > 44100);
   CHECK(receiver.resampleRate() <= max_rate);
 
-  // the audio continues while the rate changes
+  // the audio continues while the rate changes: the resampled output of the
+  // segments must not get lost (the buffered resampler flushed its output,
+  // which clears the QueueStream)
   auto out = pullSamples(receiver, 2 * BLOCK_SAMPLES);
-  CHECK(out.size() > 0);
+  CHECK(out.size() >= 2 * BLOCK_SAMPLES * 95 / 100);
 
   // buffer (almost) empty: the sender is slower than the playback
   for (int j = 0; j < 10; j++) {
@@ -548,6 +550,74 @@ void testReceiverTaskStreams() {
   receiver.end();
 }
 
+// ------------------------------------------------------------------
+// Final review
+// ------------------------------------------------------------------
+
+/// A /start which can not be parsed must not create a source line
+void testMalformedStartCreatesNoSource() {
+  Link link;
+  AOOTestReceiver receiver(1, link.receiver_io);
+  receiver.begin(receiverConfig(receiver));
+  // address of a /start, but a wrong format
+  AOOStopSink wrong;
+  wrong.source_id = 1;
+  wrong.sink_id = 1;
+  AOOPacketQueue unused;
+  AOOStreamPipe other{unused};
+  other.addOutput(link.to_receiver);
+  wrong.send(other);
+  auto &p = link.to_receiver.back();
+  // both addresses are padded to 20 bytes: the format stays at its position
+  const char *stop = "/aoo/sink/1/stop";
+  const char *start = "/aoo/sink/1/start";
+  CHECK(memcmp(p.data(), stop, strlen(stop)) == 0);
+  memcpy(p.data(), start, strlen(start) + 1);
+  receiver.process();
+  CHECK_EQ(receiver.getSourceCount(), 0);
+}
+
+/// A repeated /start for an unchanged stream must keep the buffered audio
+void testRepeatedStartKeepsBuffer() {
+  Link link;
+  AOOSender sender(1, link.sender_io);
+  AOOReceiver receiver(1, link.receiver_io);
+  receiver.begin(receiverConfig(receiver));
+  sender.begin(senderConfig(sender));
+  for (int b = 0; b < 6; b++) writeBlock(sender, b);
+  AOOStart start;
+  CHECK(aooFindStart(link.to_receiver, start));
+  receiver.available();  // processes /start and the data
+  // the same /start again (e.g. the answer to a /start request)
+  start.send(link.sender_io);
+  auto out = pullSamples(receiver, 4 * BLOCK_SAMPLES);
+  CHECK_EQ(out.size(), 4 * BLOCK_SAMPLES);
+  CHECK_EQ(rampMismatches(out), 0);
+}
+
+/// AOOReceiverTask can be ended while streaming and started again: the task
+/// must not be stopped while it holds the lock
+void testReceiverTaskRestarts() {
+  for (int run = 0; run < 2; run++) {
+    Link link;
+    AOOSender sender(1, link.sender_io);
+    AOOReceiverTask receiver(1, link.receiver_io);
+    CHECK(receiver.begin(receiverConfig(receiver)));
+    sender.begin(senderConfig(sender));
+    for (int b = 0; b < 6; b++) writeBlock(sender, b);
+    for (int j = 0; j < 100 && receiver.stats().segments_stored < 6; j++)
+      delay(10);
+    CHECK_EQ(receiver.stats().segments_stored, 6);
+    receiver.end();
+    CHECK(receiver.begin(receiverConfig(receiver)));
+    for (int b = 6; b < 12; b++) writeBlock(sender, b);
+    for (int j = 0; j < 100 && receiver.getSourceCount() == 0; j++)
+      delay(10);
+    CHECK_EQ(receiver.getSourceCount(), 1);
+    receiver.end();
+  }
+}
+
 const AOOTestCase tests[] = {
     {"AvailableDoesNotBlockBeforePriming",
      testAvailableDoesNotBlockBeforePriming},
@@ -578,6 +648,9 @@ const AOOTestCase tests[] = {
     {"SenderSendsStopOnEnd", testSenderSendsStopOnEnd},
     {"StartAnnouncesActualBlockSize", testStartAnnouncesActualBlockSize},
     {"ReceiverTaskStreams", testReceiverTaskStreams},
+    {"MalformedStartCreatesNoSource", testMalformedStartCreatesNoSource},
+    {"RepeatedStartKeepsBuffer", testRepeatedStartKeepsBuffer},
+    {"ReceiverTaskRestarts", testReceiverTaskRestarts},
 };
 
 void setup() {

@@ -61,12 +61,14 @@ This is a header-only C++ implementation using the Arduino Networking API for co
 - **Sender is lightweight**: Encoding + UDP send is straightforward. Even single-core platforms handle PCM sending well.
 - **Receiver is heavier**: Decoding + format conversion + mixing + audio output. On single-core platforms, use larger block sizes and lower sample rates to reduce per-block overhead.
 - **Serial transport** (`AOOStreamSerial`): Works on any platform with UART. Useful for point-to-point links where WiFi isn't available. Limited by baud rate (~11 KB/s at 115200).
+- **Error correction**: resend requests (default) work well with Opus and 20 ms frames; redundancy (`cfg.redundancy = 2` on the sender) is the most robust against random loss but doubles the bandwidth. See [Choosing the Error Correction](doc/architecture.md#choosing-the-error-correction) for measurements.
+- **Interoperability**: tested in both directions against the official aoo library (PCM and Opus, desktop and ESP32-S3 over WiFi).
 
 ## Documentation
 
 - [Quick Start & Examples](doc/quickstart.md)
 - [Architecture & Features](doc/architecture.md)
-- [Desktop Build](doc/desktop-build.md)
+- [Desktop Build & Tests](doc/desktop-build.md)
 - [AoO V2.0 Protocol Specification](https://git.iem.at/aoo/aoo/-/blob/master/doc/aoo_protocol.md)
 - [OSC V1.0 Specification](https://opensoundcontrol.stanford.edu/spec-1_0.html)
 

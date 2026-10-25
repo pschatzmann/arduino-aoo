@@ -1,4 +1,5 @@
 #pragma once
+#include <atomic>
 #include "AOOReceiver.h"
 // Generic dispatcher: picks RTOS.h (ESP32), Desktop.h (USE_STD_CONCURRENCY,
 // e.g. desktop/CMake builds with IS_DESKTOP), Zephyr.h, RP2040.h or STM32.h
@@ -62,6 +63,8 @@ class AOOReceiverTask : public AOOReceiver {
     if (!AOOReceiver::begin()) return false;
     // Set mutex on all existing sources
     setMutexOnSources();
+    stop_requested = false;
+    stopped = false;
     task.create("aoo_recv", task_stack_size, task_priority, task_core);
     task.begin([this]() { taskLoop(); });
     return true;
@@ -69,8 +72,14 @@ class AOOReceiverTask : public AOOReceiver {
 
   /// Stops the receive task and releases all resources
   void end() {
-    // Stop the task first: once it's joined, nothing else touches sources
-    // concurrently, so AOOReceiver::end() doesn't need the lock here.
+    // Stop the task first: once it's stopped, nothing else touches sources
+    // concurrently, so AOOReceiver::end() doesn't need the lock here. The
+    // task confirms the stop outside of the lock, so that it is never
+    // suspended or deleted while it holds sources_mutex.
+    if (!task.isEnded()) {
+      stop_requested = true;
+      for (int j = 0; j < 100 && !stopped; j++) delay(1);
+    }
     task.end();
     task.remove();
     AOOReceiver::end();
@@ -130,7 +139,15 @@ class AOOReceiverTask : public AOOReceiver {
   int task_priority = 1;
   int task_core = 0;
 
+  std::atomic<bool> stop_requested{false};
+  std::atomic<bool> stopped{false};
+
   void taskLoop() {
+    if (stop_requested) {
+      stopped = true;
+      delay(10);
+      return;
+    }
     processMessages();
     delay(1);
   }

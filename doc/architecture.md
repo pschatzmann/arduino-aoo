@@ -137,11 +137,11 @@ Subclass of `AOOReceiver` that processes UDP messages in a separate FreeRTOS tas
 - **Core 0**: FreeRTOS task continuously reads UDP, parses messages, stores encoded data
 - **Core 1**: Audio thread pulls decoded data via `readBytes()`
 
-A mutex protects individual buffer operations (fine-grained locking).
+A mutex protects each source's encoded buffer, a recursive mutex the list of sources and the mixer. The task needs a stack of 8192 bytes (default). `end()` stops the task in a state where it does not hold a lock, so the receiver can be started again.
 
 ```cpp
 AOOReceiverTask receiver(1, udp);
-receiver.setTaskConfig(4096, 1, 0);  // stack, priority, core
+receiver.setTaskConfig(8192, 1, 0);  // stack, priority, core
 receiver.begin();
 ```
 
@@ -174,11 +174,11 @@ Both OSC and binary message formats are supported. The binary format (used by th
 
 ## Clock Synchronization
 
-`AOOClockSync` estimates wall-clock offset and round-trip time using NTP-style calculations from ping/pong timestamps. Accessible via `sender.clockSync()` or `receiver.clockSync()`.
+`AOOClockSync` estimates wall-clock offset and round-trip time using NTP-style calculations from ping/pong timestamps. Like in the official aoo library all timestamps are NTP timetags (`aoo_ntp_now()`, based on the system time). Accessible via `sender.clockSync()` or `receiver.clockSync()`.
 
 ## Adaptive Resampling
 
-When enabled, the receiver measures the effective source sample rate from received data timestamps and adjusts the `FormatConverterStream`'s internal resampler to compensate for crystal-oscillator drift between sender and receiver.
+When enabled, the receiver compensates the clock drift between sender and receiver by adjusting the playback rate so that the buffer stays half full: every `resample_update_ms` the (smoothed) fill level is compared with the target and the source sample rate of the `FormatConverterStream` is changed proportionally, by at most `max_resample_percent` (default 0.5%).
 
 ## Transport
 
